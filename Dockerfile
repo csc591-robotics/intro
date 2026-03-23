@@ -26,12 +26,16 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/*
 
 # Source ROS workspace automatically when new terminal is opened
-RUN sudo echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
+RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
+    echo "[ -f /workspace/install/setup.bash ] && . /workspace/install/setup.bash" >> ~/.bashrc
 
 # Source ROS in the main terminal
 COPY ros_entrypoint.sh /ros_entrypoint.sh
 
 # Source ROS in the main terminal
 ENTRYPOINT ["/ros_entrypoint.sh"]
+
+# set local working directory
+WORKDIR /workspace
 
 CMD ["bash"]

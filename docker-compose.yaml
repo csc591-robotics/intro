@@ -12,8 +12,9 @@ services:
     #runtime: nvidia
     tty: true
     user: user
+    working_dir: /workspace
     volumes:
-      - ./files:/home/ubuntu/files
+      - .:/workspace
       - /tmp/.X11-unix:/tmp/.X11-unix
     environment:
       #- NVIDIA_VISIBLE_DEVICES=all # Makes all NVIDIA devices visible to the container
@@ -23,4 +24,5 @@ services:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
       - ROS_DOMAIN_ID=42
+      - ROS_HOME=/workspace/.ros
     command: bash
