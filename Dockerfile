@@ -16,20 +16,23 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Make default shell in Dockerfile bash instead of sh
 SHELL ["/bin/bash", "-c"]
 
-# Install Gazebo
-RUN sudo apt-get update && sudo apt-get install ros-${ROS_DISTRO}-ros-gz
-
 # Install dependencies
 RUN sudo apt-get update && \
     sudo apt-get install -y --no-install-recommends \
+    vim \
+    ros-${ROS_DISTRO}-turtlebot3* \
+    ros-${ROS_DISTRO}-gazebo-* \
     && sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/*
 
 # Source ROS workspace automatically when new terminal is opened
 RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
     echo "[ -f /workspace/install/setup.bash ] && . /workspace/install/setup.bash" >> ~/.bashrc
+# Source gazebo
+RUN sudo echo ". /usr/share/gazebo-11/setup.bash" >> ~/.bashrc
+# Set the turtlebot model
+RUN sudo echo "export TURTLEBOT3_MODEL=burger" >> ~/.bashrc
 
-# Source ROS in the main terminal
 COPY ros_entrypoint.sh /ros_entrypoint.sh
 
 # Source ROS in the main terminal
