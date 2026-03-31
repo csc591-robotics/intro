@@ -20,6 +20,7 @@ class LlmNavNode(Node):
     """Mission controller that asks Groq to choose route segments."""
 
     def __init__(self) -> None:
+        """Initialize ROS interfaces, parameters, and navigation state."""
         super().__init__('llm_nav_node')
 
         self.declare_parameter('groq_api_key', '')
@@ -31,7 +32,7 @@ class LlmNavNode(Node):
         self.declare_parameter('navigation_timeout_sec', 90.0)
         self.declare_parameter('stall_timeout_sec', 15.0)
         self.declare_parameter('stall_min_progress_m', 0.15)
-        self.declare_parameter('max_replans', 3)
+        self.declare_parameter('max_replans', 10)
         self.declare_parameter('route_graph_path', '')
         self.declare_parameter(
             'planner_notes',
@@ -42,7 +43,9 @@ class LlmNavNode(Node):
             ),
         )
 
+        # graph - navigation environment representation
         self._graph = self._load_route_graph()
+        
         self._checkpoints = self._graph['checkpoints']
         self._edges = {
             (edge['from'], edge['to']) for edge in self._graph['edges']
@@ -81,6 +84,7 @@ class LlmNavNode(Node):
         )
 
     def _handle_request(self, msg: String) -> None:
+        """Start a mission thread for a navigation request."""
         goal_request = msg.data.strip()
         if not goal_request:
             self.get_logger().warning('Ignoring empty mission request')
@@ -102,6 +106,8 @@ class LlmNavNode(Node):
         self._mission_thread.start()
 
     def _run_mission(self, goal_request: str) -> None:
+        """Plan, execute, and replan route segments until the mission ends."""
+        # blocked edges --> failure cache
         blocked_edges: set[tuple[str, str]] = set()
         last_failure_reason = ''
         replan_count = 0
@@ -109,12 +115,12 @@ class LlmNavNode(Node):
         try:
             self._publish_status(f'Mission requested: {goal_request}')
             while True:
-                decision = self._query_groq_for_route(
+                decision = self._make_decision(
                     goal_request=goal_request,
                     blocked_edges=blocked_edges,
                     failure_reason=last_failure_reason,
                 )
-                route = self._validate_route_decision(
+                route = self._validate_decision(
                     decision,
                     blocked_edges,
                 )
@@ -123,20 +129,26 @@ class LlmNavNode(Node):
                 self._publish_status(
                     f"Groq chose route to '{goal_alias}': {' -> '.join(route)}"
                 )
-                outcome = self._execute_route(route)
+                outcome = self._execute_decision(route)
+
+                # mission success
                 if outcome['status'] == 'success':
                     self._publish_status(
                         f"Mission complete. Reached goal alias '{goal_alias}'"
                     )
                     return
 
+                # mission failure
                 if replan_count >= self._int_param('max_replans'):
                     raise RuntimeError(
                         'Mission failed after exhausting replans: '
                         f"{outcome['reason']}"
                     )
 
+
                 failed_edge = outcome.get('failed_edge')
+                
+                # cache failed edges
                 if failed_edge is not None:
                     blocked_edges.add(failed_edge)
 
@@ -152,9 +164,25 @@ class LlmNavNode(Node):
             with self._mission_lock:
                 self._mission_active = False
 
-    def _execute_route(self, route: list[str]) -> dict[str, Any]:
+    def _execute_decision(self, route: list[str]) -> dict[str, Any]:
+        """Execute a validated route decision one checkpoint at a time."""
         for next_checkpoint in route[1:]:
-            pose = self._pose_for_checkpoint(next_checkpoint)
+
+            # Convert a named checkpoint into a PoseStamped goal
+            checkpoint = self._checkpoints[next_checkpoint]
+
+            pose = PoseStamped()
+            pose.header.frame_id = self._string_param('map_frame')
+            pose.header.stamp = self.get_clock().now().to_msg()
+            pose.pose.position.x = float(checkpoint['x'])
+            pose.pose.position.y = float(checkpoint['y'])
+            pose.pose.position.z = 0.0
+
+            half_yaw = float(checkpoint['yaw']) / 2.0
+            pose.pose.orientation.z = math.sin(half_yaw)
+            pose.pose.orientation.w = math.cos(half_yaw)
+
+            
             self._goal_pub.publish(pose)
             self._publish_status(
                 f'Executing segment {self._current_checkpoint} -> '
@@ -162,7 +190,7 @@ class LlmNavNode(Node):
             )
             self._navigator.goToPose(pose)
 
-            outcome = self._wait_for_segment_result(
+            outcome = self._monitor_decision(
                 self._current_checkpoint,
                 next_checkpoint,
             )
@@ -176,11 +204,12 @@ class LlmNavNode(Node):
 
         return {'status': 'success'}
 
-    def _wait_for_segment_result(
+    def _monitor_decision(
         self,
         from_checkpoint: str,
         to_checkpoint: str,
     ) -> dict[str, Any]:
+        """Monitor the active Nav2 segment until it succeeds or fails."""
         navigation_timeout_sec = self._float_param('navigation_timeout_sec')
         stall_timeout_sec = self._float_param('stall_timeout_sec')
         stall_min_progress_m = self._float_param('stall_min_progress_m')
@@ -238,20 +267,43 @@ class LlmNavNode(Node):
             'failed_edge': (from_checkpoint, to_checkpoint),
         }
 
-    def _query_groq_for_route(
+    def _make_decision(
         self,
         goal_request: str,
         blocked_edges: set[tuple[str, str]],
         failure_reason: str,
     ) -> dict[str, Any]:
-        api_key = self._get_api_key()
+        """Ask the LLM to make the next route decision."""
+        api_key = self._string_param('groq_api_key') or os.environ.get(
+            'GROQ_API_KEY',
+            '',
+        )
+        if not api_key:
+            raise RuntimeError(
+                'Missing Groq API key. Set the groq_api_key parameter or '
+                'GROQ_API_KEY environment variable.'
+            )
+        planner_notes = self._string_param('planner_notes')
         payload = {
             'model': self._string_param('groq_model'),
             'temperature': 0.2,
             'messages': [
                 {
                     'role': 'system',
-                    'content': self._build_system_prompt(),
+                    'content': (
+                        'You are the high-level route decision layer for a '
+                        'TurtleBot. '
+                        'Do not create arbitrary coordinates. '
+                        'Choose only from the checkpoint graph provided in '
+                        'the user JSON. '
+                        'Output JSON only with this schema: '
+                        '{"goal_alias": string, "route": [string, ...], '
+                        '"reason": string}. '
+                        'The route must begin at current_checkpoint, end at a '
+                        'checkpoint allowed by the chosen goal_alias, and '
+                        'only use allowed edges that are not blocked. '
+                        f'{planner_notes}'
+                    ),
                 },
                 {
                     'role': 'user',
@@ -305,11 +357,12 @@ class LlmNavNode(Node):
         decision.setdefault('reason', '')
         return decision
 
-    def _validate_route_decision(
+    def _validate_decision(
         self,
         decision: dict[str, Any],
         blocked_edges: set[tuple[str, str]],
     ) -> list[str]:
+        """Validate that the LLM decision stays within the allowed graph."""
         goal_alias = decision['goal_alias']
         if goal_alias not in self._goal_aliases:
             raise RuntimeError(f"Unknown goal alias '{goal_alias}'")
@@ -347,26 +400,13 @@ class LlmNavNode(Node):
 
         return route
 
-    def _build_system_prompt(self) -> str:
-        planner_notes = self._string_param('planner_notes')
-        return (
-            'You are the high-level route decision layer for a TurtleBot. '
-            'Do not create arbitrary coordinates. '
-            'Choose only from the checkpoint graph provided in the user JSON. '
-            'Output JSON only with this schema: '
-            '{"goal_alias": string, "route": [string, ...], "reason": string}. '
-            'The route must begin at current_checkpoint, end at a checkpoint '
-            'allowed by the chosen goal_alias, and only use allowed edges that '
-            'are not blocked. '
-            f'{planner_notes}'
-        )
-
     def _build_decision_context(
         self,
         goal_request: str,
         blocked_edges: set[tuple[str, str]],
         failure_reason: str,
     ) -> dict[str, Any]:
+        """Assemble the structured graph context for route selection."""
         return {
             'goal_request': goal_request,
             'current_checkpoint': self._current_checkpoint,
@@ -388,6 +428,7 @@ class LlmNavNode(Node):
         }
 
     def _load_route_graph(self) -> dict[str, Any]:
+        """Load and validate the route graph JSON from disk."""
         graph_path = self._string_param('route_graph_path')
         if not graph_path:
             raise RuntimeError('route_graph_path parameter is required')
@@ -443,55 +484,34 @@ class LlmNavNode(Node):
         return graph
 
     def _build_adjacency(self) -> dict[str, list[str]]:
+        """Build a simple outgoing-edge map for each checkpoint."""
         adjacency = {name: [] for name in self._checkpoints}
         for from_node, to_node in self._edges:
             adjacency[from_node].append(to_node)
         return adjacency
 
-    def _pose_for_checkpoint(self, checkpoint_name: str) -> PoseStamped:
-        checkpoint = self._checkpoints[checkpoint_name]
-
-        pose = PoseStamped()
-        pose.header.frame_id = self._string_param('map_frame')
-        pose.header.stamp = self.get_clock().now().to_msg()
-        pose.pose.position.x = float(checkpoint['x'])
-        pose.pose.position.y = float(checkpoint['y'])
-        pose.pose.position.z = 0.0
-
-        half_yaw = float(checkpoint['yaw']) / 2.0
-        pose.pose.orientation.z = math.sin(half_yaw)
-        pose.pose.orientation.w = math.cos(half_yaw)
-        return pose
-
-    def _get_api_key(self) -> str:
-        api_key = self._string_param('groq_api_key') or os.environ.get(
-            'GROQ_API_KEY',
-            '',
-        )
-        if not api_key:
-            raise RuntimeError(
-                'Missing Groq API key. Set the groq_api_key parameter or '
-                'GROQ_API_KEY environment variable.'
-            )
-        return api_key
-
     def _publish_status(self, message: str) -> None:
+        """Publish a status update and mirror it to the node logger."""
         status = String()
         status.data = message
         self._status_pub.publish(status)
         self.get_logger().info(message)
 
     def _string_param(self, name: str) -> str:
+        """Return a string ROS parameter value."""
         return self.get_parameter(name).get_parameter_value().string_value
 
     def _float_param(self, name: str) -> float:
+        """Return a floating-point ROS parameter value."""
         return self.get_parameter(name).get_parameter_value().double_value
 
     def _int_param(self, name: str) -> int:
+        """Return an integer ROS parameter value."""
         return self.get_parameter(name).get_parameter_value().integer_value
 
 
 def main(args: list[str] | None = None) -> None:
+    """Initialize ROS, run the node, and cleanly shut down."""
     rclpy.init(args=args)
     node = LlmNavNode()
     try:

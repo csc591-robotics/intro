@@ -11,6 +11,7 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav2_simple_commander</depend>
+  <depend>nav2_bringup</depend>
   <depend>ament_index_python</depend>
   <depend>launch</depend>
   <depend>launch_ros</depend>
