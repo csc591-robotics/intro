@@ -3,7 +3,6 @@
 import json
 import math
 import os
-import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -33,13 +32,16 @@ class LlmNavNode(Node):
         self.declare_parameter('stall_timeout_sec', 15.0)
         self.declare_parameter('stall_min_progress_m', 0.15)
         self.declare_parameter('max_replans', 10)
+        self.declare_parameter('max_decision_attempts', 2)
         self.declare_parameter('route_graph_path', '')
         self.declare_parameter(
             'planner_notes',
             (
                 'You are the high-level routing layer. Choose among allowed '
                 'checkpoints and edges only. Nav2 handles obstacle avoidance '
-                'and local path planning.'
+                'and local path planning. Never use blocked edges. If a route '
+                'fails, choose a different legal route from the current '
+                'checkpoint.'
             ),
         )
 
@@ -69,9 +71,21 @@ class LlmNavNode(Node):
         )
 
         self._navigator = BasicNavigator()
-        self._mission_lock = threading.Lock()
         self._mission_active = False
-        self._mission_thread: threading.Thread | None = None
+        self._mission_goal_request = ''
+        self._blocked_edges: set[tuple[str, str]] = set()
+        self._last_failure_reason = ''
+        self._replan_count = 0
+        self._current_goal_alias = ''
+        self._active_route: list[str] = []
+        self._route_index = 0
+        self._segment_from_checkpoint = ''
+        self._segment_to_checkpoint = ''
+        self._segment_start_time = 0.0
+        self._segment_last_progress_time = 0.0
+        self._segment_best_distance: float | None = None
+        self._segment_active = False
+        self._mission_timer = self.create_timer(1.0, self._mission_tick)
 
         self.get_logger().info(
             f'Loaded route graph with {len(self._checkpoints)} checkpoints and '
@@ -84,175 +98,217 @@ class LlmNavNode(Node):
         )
 
     def _handle_request(self, msg: String) -> None:
-        """Start a mission thread for a navigation request."""
+        """Accept a new mission request if no mission is currently active."""
         goal_request = msg.data.strip()
         if not goal_request:
             self.get_logger().warning('Ignoring empty mission request')
             return
 
-        with self._mission_lock:
-            if self._mission_active:
-                self._publish_status(
-                    'Mission already in progress; ignoring new request'
-                )
-                return
-            self._mission_active = True
+        if self._mission_active:
+            self._publish_status(
+                'Mission already in progress; ignoring new request'
+            )
+            return
 
-        self._mission_thread = threading.Thread(
-            target=self._run_mission,
-            args=(goal_request,),
-            daemon=True,
-        )
-        self._mission_thread.start()
+        self._mission_active = True
+        self._mission_goal_request = goal_request
+        self._blocked_edges = set()
+        self._last_failure_reason = ''
+        self._replan_count = 0
+        self._current_goal_alias = ''
+        self._active_route = []
+        self._route_index = 0
+        self._segment_from_checkpoint = ''
+        self._segment_to_checkpoint = ''
+        self._segment_start_time = 0.0
+        self._segment_last_progress_time = 0.0
+        self._segment_best_distance = None
+        self._segment_active = False
+        self._publish_status(f'Mission requested: {goal_request}')
 
-    def _run_mission(self, goal_request: str) -> None:
-        """Plan, execute, and replan route segments until the mission ends."""
-        # blocked edges --> failure cache
-        blocked_edges: set[tuple[str, str]] = set()
-        last_failure_reason = ''
-        replan_count = 0
+    def _mission_tick(self) -> None:
+        """Advance the active mission without running concurrent mission code."""
+        if not self._mission_active:
+            return
 
         try:
-            self._publish_status(f'Mission requested: {goal_request}')
-            while True:
-                decision = self._make_decision(
-                    goal_request=goal_request,
-                    blocked_edges=blocked_edges,
-                    failure_reason=last_failure_reason,
-                )
-                route = self._validate_decision(
-                    decision,
-                    blocked_edges,
-                )
-                goal_alias = decision['goal_alias']
+            if not self._active_route:
+                self._plan_route()
+                return
 
+            if self._segment_active:
+                self._tick_active_segment()
+                return
+
+            if self._route_index >= len(self._active_route):
                 self._publish_status(
-                    f"Groq chose route to '{goal_alias}': {' -> '.join(route)}"
+                    "Mission complete. Reached goal alias "
+                    f"'{self._current_goal_alias}'"
                 )
-                outcome = self._execute_decision(route)
+                self._reset_mission_state()
+                return
 
-                # mission success
-                if outcome['status'] == 'success':
-                    self._publish_status(
-                        f"Mission complete. Reached goal alias '{goal_alias}'"
-                    )
-                    return
-
-                # mission failure
-                if replan_count >= self._int_param('max_replans'):
-                    raise RuntimeError(
-                        'Mission failed after exhausting replans: '
-                        f"{outcome['reason']}"
-                    )
-
-
-                failed_edge = outcome.get('failed_edge')
-                
-                # cache failed edges
-                if failed_edge is not None:
-                    blocked_edges.add(failed_edge)
-
-                replan_count += 1
-                last_failure_reason = outcome['reason']
-                self._publish_status(
-                    f'Replanning after route failure: {last_failure_reason}'
-                )
+            self._start_next_segment()
         except Exception as exc:
             self._publish_status(f'Mission failed: {exc}')
             self.get_logger().error(f'Mission failed: {exc}')
-        finally:
-            with self._mission_lock:
-                self._mission_active = False
+            self._reset_mission_state()
 
-    def _execute_decision(self, route: list[str]) -> dict[str, Any]:
-        """Execute a validated route decision one checkpoint at a time."""
-        for next_checkpoint in route[1:]:
+    def _plan_route(self) -> None:
+        """Ask the LLM for a route and store it for segment-by-segment execution."""
+        max_attempts = self._int_param('max_decision_attempts')
+        last_error = 'No route decision attempts were made'
 
-            # Convert a named checkpoint into a PoseStamped goal
-            checkpoint = self._checkpoints[next_checkpoint]
+        # attempt to make a valid decision x amount of times before gigivn up
+        for attempt in range(1, max_attempts + 1):
+            decision = self._make_decision(
+                goal_request=self._mission_goal_request,
+                blocked_edges=self._blocked_edges,
+                failure_reason=self._last_failure_reason,
+            )
+            try:
+                route = self._validate_decision(decision, self._blocked_edges)
+            except RuntimeError as exc:
+                last_error = str(exc)
+                self._publish_status(
+                    f'Ignoring invalid route from Groq on attempt {attempt}/'
+                    f'{max_attempts}: {last_error}'
+                )
+                continue
 
-            pose = PoseStamped()
-            pose.header.frame_id = self._string_param('map_frame')
-            pose.header.stamp = self.get_clock().now().to_msg()
-            pose.pose.position.x = float(checkpoint['x'])
-            pose.pose.position.y = float(checkpoint['y'])
-            pose.pose.position.z = 0.0
-
-            half_yaw = float(checkpoint['yaw']) / 2.0
-            pose.pose.orientation.z = math.sin(half_yaw)
-            pose.pose.orientation.w = math.cos(half_yaw)
-
-            
-            self._goal_pub.publish(pose)
+            self._current_goal_alias = decision['goal_alias']
+            self._active_route = route
+            self._route_index = 1
             self._publish_status(
-                f'Executing segment {self._current_checkpoint} -> '
-                f'{next_checkpoint}'
+                f"Groq chose route to '{self._current_goal_alias}': "
+                f"{' -> '.join(route)}"
             )
-            self._navigator.goToPose(pose)
+            return
 
-            outcome = self._monitor_decision(
-                self._current_checkpoint,
-                next_checkpoint,
-            )
-            if outcome['status'] != 'success':
-                return outcome
+        raise RuntimeError(
+            'Groq did not return a valid legal route after '
+            f'{max_attempts} attempts: {last_error}'
+        )
 
-            self._current_checkpoint = next_checkpoint
+    def _start_next_segment(self) -> None:
+        """Send the next checkpoint goal to Nav2 and initialize segment tracking."""
+        next_checkpoint = self._active_route[self._route_index]
+        checkpoint = self._checkpoints[next_checkpoint]
+
+        pose = PoseStamped()
+        pose.header.frame_id = self._string_param('map_frame')
+        pose.header.stamp = self.get_clock().now().to_msg()
+        pose.pose.position.x = float(checkpoint['x'])
+        pose.pose.position.y = float(checkpoint['y'])
+        pose.pose.position.z = 0.0
+
+        half_yaw = float(checkpoint['yaw']) / 2.0
+        pose.pose.orientation.z = math.sin(half_yaw)
+        pose.pose.orientation.w = math.cos(half_yaw)
+
+        self._goal_pub.publish(pose)
+        self._segment_from_checkpoint = self._current_checkpoint
+        self._segment_to_checkpoint = next_checkpoint
+        self._publish_status(
+            f'Executing segment {self._segment_from_checkpoint} -> '
+            f'{self._segment_to_checkpoint}'
+        )
+        self._navigator.goToPose(pose)
+        now = time.monotonic()
+        self._segment_start_time = now
+        self._segment_last_progress_time = now
+        self._segment_best_distance = None
+        self._segment_active = True
+
+    def _tick_active_segment(self) -> None:
+        """Check the in-flight Nav2 segment and replan or advance as needed."""
+        outcome = self._monitor_active_segment()
+        if outcome is None:
+            return
+
+        self._segment_active = False
+
+        if outcome['status'] == 'success':
+            self._current_checkpoint = self._segment_to_checkpoint
+            self._route_index += 1
             self._publish_status(
                 f"Reached checkpoint '{self._current_checkpoint}'"
             )
+            return
 
-        return {'status': 'success'}
+        if self._replan_count >= self._int_param('max_replans'):
+            raise RuntimeError(
+                'Mission failed after exhausting replans: '
+                f"{outcome['reason']}"
+            )
 
-    def _monitor_decision(
-        self,
-        from_checkpoint: str,
-        to_checkpoint: str,
-    ) -> dict[str, Any]:
+        failed_edge = outcome.get('failed_edge')
+        if failed_edge is not None:
+            self._blocked_edges.add(failed_edge)
+
+        self._replan_count += 1
+        self._last_failure_reason = outcome['reason']
+        self._active_route = []
+        self._route_index = 0
+        self._publish_status(
+            f'Replanning after route failure: {self._last_failure_reason}'
+        )
+
+    def _monitor_active_segment(self) -> dict[str, Any] | None:
         """Monitor the active Nav2 segment until it succeeds or fails."""
         navigation_timeout_sec = self._float_param('navigation_timeout_sec')
         stall_timeout_sec = self._float_param('stall_timeout_sec')
         stall_min_progress_m = self._float_param('stall_min_progress_m')
 
-        start_time = time.monotonic()
-        last_progress_time = start_time
-        best_distance: float | None = None
+        elapsed = time.monotonic() - self._segment_start_time
+        if elapsed > navigation_timeout_sec:
+            self._navigator.cancelTask()
+            return {
+                'status': 'failed',
+                'reason': (
+                    f'Segment {self._segment_from_checkpoint}->'
+                    f'{self._segment_to_checkpoint} timed out after '
+                    f'{navigation_timeout_sec:.1f}s'
+                ),
+                'failed_edge': (
+                    self._segment_from_checkpoint,
+                    self._segment_to_checkpoint,
+                ),
+            }
 
-        while not self._navigator.isTaskComplete():
-            elapsed = time.monotonic() - start_time
-            if elapsed > navigation_timeout_sec:
-                self._navigator.cancelTask()
-                return {
-                    'status': 'failed',
-                    'reason': (
-                        f'Segment {from_checkpoint}->{to_checkpoint} '
-                        f'timed out after {navigation_timeout_sec:.1f}s'
-                    ),
-                    'failed_edge': (from_checkpoint, to_checkpoint),
-                }
-
+        if not self._navigator.isTaskComplete():
             feedback = self._navigator.getFeedback()
             distance_remaining = getattr(feedback, 'distance_remaining', None)
             if distance_remaining is not None:
                 distance_remaining = float(distance_remaining)
-                if best_distance is None:
-                    best_distance = distance_remaining
-                    last_progress_time = time.monotonic()
-                elif best_distance - distance_remaining >= stall_min_progress_m:
-                    best_distance = distance_remaining
-                    last_progress_time = time.monotonic()
-                elif time.monotonic() - last_progress_time > stall_timeout_sec:
+                if self._segment_best_distance is None:
+                    self._segment_best_distance = distance_remaining
+                    self._segment_last_progress_time = time.monotonic()
+                elif (
+                    self._segment_best_distance - distance_remaining
+                    >= stall_min_progress_m
+                ):
+                    self._segment_best_distance = distance_remaining
+                    self._segment_last_progress_time = time.monotonic()
+                elif (
+                    time.monotonic() - self._segment_last_progress_time
+                    > stall_timeout_sec
+                ):
                     self._navigator.cancelTask()
                     return {
                         'status': 'failed',
                         'reason': (
-                            f'Segment {from_checkpoint}->{to_checkpoint} '
-                            f'stalled for {stall_timeout_sec:.1f}s'
+                            f'Segment {self._segment_from_checkpoint}->'
+                            f'{self._segment_to_checkpoint} stalled for '
+                            f'{stall_timeout_sec:.1f}s'
                         ),
-                        'failed_edge': (from_checkpoint, to_checkpoint),
+                        'failed_edge': (
+                            self._segment_from_checkpoint,
+                            self._segment_to_checkpoint,
+                        ),
                     }
 
-            time.sleep(1.0)
+            return None
 
         result = str(self._navigator.getResult())
         if 'SUCCEEDED' in result:
@@ -261,11 +317,32 @@ class LlmNavNode(Node):
         return {
             'status': 'failed',
             'reason': (
-                f'Segment {from_checkpoint}->{to_checkpoint} returned '
+                f'Segment {self._segment_from_checkpoint}->'
+                f'{self._segment_to_checkpoint} returned '
                 f'Nav2 result {result}'
             ),
-            'failed_edge': (from_checkpoint, to_checkpoint),
+            'failed_edge': (
+                self._segment_from_checkpoint,
+                self._segment_to_checkpoint,
+            ),
         }
+
+    def _reset_mission_state(self) -> None:
+        """Clear mission execution state so the next request can be accepted."""
+        self._mission_active = False
+        self._mission_goal_request = ''
+        self._blocked_edges = set()
+        self._last_failure_reason = ''
+        self._replan_count = 0
+        self._current_goal_alias = ''
+        self._active_route = []
+        self._route_index = 0
+        self._segment_from_checkpoint = ''
+        self._segment_to_checkpoint = ''
+        self._segment_start_time = 0.0
+        self._segment_last_progress_time = 0.0
+        self._segment_best_distance = None
+        self._segment_active = False
 
     def _make_decision(
         self,

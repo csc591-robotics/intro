@@ -24,15 +24,20 @@ RUN sudo apt-get update && \
     ros-${ROS_DISTRO}-nav2-bringup \
     ros-${ROS_DISTRO}-turtlebot3-gazebo \
     ros-${ROS_DISTRO}-turtlebot3-navigation2 \
-    ros-${ROS_DISTRO}-turtlebot3-description && \
+    ros-${ROS_DISTRO}-turtlebot3-description \
+    ros-${ROS_DISTRO}-cv-bridge \
+    python3-pip && \
     sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 RUN sudo apt-get update && \
     sudo apt-get install -y --no-install-recommends \
+    python3-pil \
     && sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --no-cache-dir langgraph
 
 # Source ROS workspace automatically when new terminal is opened
 RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
