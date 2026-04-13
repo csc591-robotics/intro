@@ -3,14 +3,19 @@
 Run `run_llm_nav.sh` only inside the Docker container.
 Do not run it from your Mac host shell.
 
-## Terminal 1: Start Docker
 
+## In a terminal on your local machine
+```bash
+xhost +local:docker
+```
+
+## Terminal 1: Start Docker
 From the repo root on your Mac:
 
 ```bash
 docker compose up -d --build
 ```
-
+s
 ## Terminal 2: Build The ROS Package
 
 Open a new terminal on your Mac, then enter the container:
@@ -25,6 +30,8 @@ Inside the container:
 source /opt/ros/humble/setup.bash
 colcon build --packages-select nav2_llm_demo
 source install/setup.bash
+
+
 ```
 
 If the build succeeds, stay in this terminal if you want, or exit it.
@@ -81,9 +88,53 @@ ros2 topic pub --once /navigation_request std_msgs/msg/String "{data: 'Reach the
 Check these first:
 - you are inside the Docker container, not your Mac host shell
 - `.env` exists at `/workspace/.env`
-- `.env` contains `GROQ_API_KEY=...`
+- `.env` contains `LLM_PROVIDER=...` and `LLM_MODEL=...` plus the matching provider API key (see `.env.example`)
 - `colcon build --packages-select nav2_llm_demo` finished successfully
 - you left Terminal 3 open after starting `run_llm_nav.sh`
+
+## Gazebo GUI: `Authorization required` / `gzclient` died
+
+`run_llm_nav.sh` starts the full Gazebo stack, including **`gzclient`** (the 3D window). That only works if your shell has a **working display** (X11) and permission to use it.
+
+If you see `Authorization required, but no authorization protocol specified` and `[ERROR] [gzclient-2]: process has died`, the physics server (`gzserver`) may still be running, but the **GUI cannot open**. Typical causes:
+
+- SSH without forwarding: plain `ssh user@host` has no display. Use **X11 forwarding** (`ssh -Y user@host`) **and** an X server on your laptop (XQuartz on macOS, VcXsrv/WSLg on Windows), **or**
+- **Remote VM / lab machine (e.g. VCL):** run `run_llm_nav.sh` from a **desktop session** for that VM (VNC, noVNC, or the provider’s “console” GUI), not only from a text-only SSH session. Open a terminal **inside** that desktop so `DISPLAY` is set (often `:0` or `:1`).
+- **Wrong `DISPLAY` or missing cookie:** the user that starts Gazebo must match the user logged into the graphical session, or you must **merge `xauth`** / use the same `DISPLAY` as the active desktop.
+
+There is no project setting that fixes this; the fix is to run Gazebo where a real (or forwarded) X session exists. `gzserver` alone does not need a monitor, but **you asked for the full Gazebo window**, so the environment must provide one.
+
+### Docker on Linux: allow the container to use your X11 display
+
+`docker-compose.yaml` already passes `DISPLAY` and mounts `/tmp/.X11-unix`. The host X server still has to **accept connections** from processes inside the container (otherwise you get `Authorization required, but no authorization protocol specified`).
+
+On the **Linux host**, in the same graphical session where your desktop runs, run **once** before `docker compose up` (or after each login):
+
+```bash
+xhost +local:docker
+```
+
+If your X server reports that `docker` is not a valid family name, use the broader local rule:
+
+```bash
+xhost +local:
+```
+
+(`+local:` allows any local user to connect to your display; only use on trusted machines.)
+
+To tighten access when you are done:
+
+```bash
+xhost -local:docker
+# or
+xhost -local:
+```
+
+Ensure `echo $DISPLAY` is set on the host when you start Compose (e.g. `:0` or `:1`).
+
+### macOS + Docker Desktop
+
+`xhost` on the Mac does not apply the same way. You typically need **XQuartz**, configure it to accept network connections, and point the container at your host’s display (Docker Desktop networking differs from Linux `network_mode: host`). Follow a ROS-on-Docker + XQuartz guide if you run the GUI from a container on Mac.
 
 ## Step 2: Start LangGraph controller
 docker compose exec autonomous_pathing_llm bash

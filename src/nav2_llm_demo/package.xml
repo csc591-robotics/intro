@@ -3,8 +3,8 @@
 <package format="3">
   <name>nav2_llm_demo</name>
   <version>0.0.0</version>
-  <description>Groq-driven route decision layer for Nav2 waypoint missions.</description>
-  <maintainer email="user@todo.todo">user</maintainer>
+  <description>LangChain-driven route decision layer for Nav2 waypoint missions.</description>
+  <maintainer email="akaluri@ncsu.edu">Anirudh, Brennen, Miles</maintainer>
   <license>MIT-0</license>
 
   <depend>rclpy</depend>
@@ -15,6 +15,12 @@
   <depend>ament_index_python</depend>
   <depend>launch</depend>
   <depend>launch_ros</depend>
+  <depend>python3-langchain</depend>
+  <depend>python3-langchain-core</depend>
+  <depend>python3-langchain-openai</depend>
+  <depend>python3-langchain-anthropic</depend>
+  <depend>python3-langchain-mistralai</depend>
+  <depend>python3-langchain-ollama</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

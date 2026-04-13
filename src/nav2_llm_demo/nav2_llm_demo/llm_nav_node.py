@@ -1,4 +1,4 @@
-"""Groq-backed decision layer that routes a robot through Nav2."""
+"""LangChain-backed decision layer that routes a robot through Nav2."""
 
 import math
 import time
@@ -26,14 +26,12 @@ class SegmentState:
 
 
 class LlmNavNode(Node):
-    """Mission controller that asks Groq to choose route segments."""
+    """Mission controller that asks the LLM to choose route segments."""
 
     def __init__(self) -> None:
         """Initialize ROS interfaces, parameters, and navigation state."""
         super().__init__('llm_nav_node')
 
-        self.declare_parameter('groq_api_key', '')
-        self.declare_parameter('groq_model', 'llama-3.3-70b-versatile')
         self.declare_parameter('request_topic', '/navigation_request')
         self.declare_parameter('status_topic', '/navigation_status')
         self.declare_parameter('active_goal_pose_topic', '/active_goal_pose')
@@ -143,8 +141,6 @@ class LlmNavNode(Node):
                     goal_aliases=self._goal_aliases,
                     checkpoints=self._checkpoints,
                     edges=self._edges,
-                    api_key=self._string_param('groq_api_key'),
-                    model=self._string_param('groq_model'),
                     planner_notes=self._string_param('planner_notes'),
                     max_attempts=self._int_param('max_decision_attempts'),
                     publish_status=self._publish_status,
@@ -153,7 +149,7 @@ class LlmNavNode(Node):
                 self._active_route = route
                 self._route_index = 1
                 self._publish_status(
-                    f"Groq chose route to '{self._current_goal_alias}': "
+                    f"LLM chose route to '{self._current_goal_alias}': "
                     f"{' -> '.join(route)}"
                 )
                 return

@@ -78,9 +78,19 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-# The LLM node reads the key from the environment if it is not given as a ROS param.
-if [[ -z "${GROQ_API_KEY:-}" ]]; then
-  echo "GROQ_API_KEY is not set. Add it to ${WORKSPACE_DIR}/.env before launching."
+# TurtleBot3 launch files require this; default matches docker-compose.yaml.
+# Override in `.env` if you use waffle or waffle_pi.
+export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
+
+# The LLM node reads LLM_PROVIDER and LLM_MODEL from the environment,
+# plus whichever API key the chosen provider requires (e.g. OPENAI_API_KEY).
+if [[ -z "${LLM_PROVIDER:-}" ]]; then
+  echo "LLM_PROVIDER is not set. Add it to ${WORKSPACE_DIR}/.env (e.g. LLM_PROVIDER=openai)."
+  exit 1
+fi
+
+if [[ -z "${LLM_MODEL:-}" ]]; then
+  echo "LLM_MODEL is not set. Add it to ${WORKSPACE_DIR}/.env (e.g. LLM_MODEL=gpt-4o)."
   exit 1
 fi
 
@@ -153,10 +163,10 @@ for ((i = 1; i <= INITIAL_POSE_RETRIES; i++)); do
   sleep 1
 done
 
-# Step 3: start the Groq-backed decision node.
+# Step 3: start the LangChain-backed decision node.
 # This node listens for `/navigation_request`, asks the LLM for a route,
 # and sends goals to Nav2 one segment at a time.
-echo "Starting Groq decision node..."
+echo "Starting LLM decision node (${LLM_PROVIDER}/${LLM_MODEL})..."
 ros2 run nav2_llm_demo llm_nav_node \
   --ros-args \
   --params-file "$PARAMS_FILE" \

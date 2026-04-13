@@ -37,7 +37,7 @@ RUN sudo apt-get update && \
     && sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install --no-cache-dir langgraph
+RUN sudo python3 -m pip install --no-cache-dir langgraph langchain langchain-core langchain-openai langchain-anthropic langchain-mistralai langchain-ollama
 
 # Source ROS workspace automatically when new terminal is opened
 RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \

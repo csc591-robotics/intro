@@ -16,11 +16,11 @@ setup(
             ['config/llm_nav_params.yaml', 'config/route_graph.json'],
         ),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'langchain', 'langchain-core'],
     zip_safe=True,
-    maintainer='user',
-    maintainer_email='user@todo.todo',
-    description='Groq-driven route decision layer for Nav2 waypoint missions.',
+    maintainer='Anirudh, Brennen, Miles',
+    maintainer_email='akaluri@ncsu.edu',
+    description='LangChain-driven route decision layer for Nav2 waypoint missions.',
     license='MIT-0',
     extras_require={
         'test': [

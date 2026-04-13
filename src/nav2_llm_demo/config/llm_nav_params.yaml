@@ -1,6 +1,5 @@
 llm_nav_node:
   ros__parameters:
-    groq_model: "llama-3.3-70b-versatile"
     request_topic: "/navigation_request"
     status_topic: "/navigation_status"
     active_goal_pose_topic: "/active_goal_pose"

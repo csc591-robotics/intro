@@ -1,9 +1,12 @@
 """LLM and route-graph helpers for high-level planning."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Callable
-from urllib import error, request
+
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage, SystemMessage
 
 
 def load_route_graph(graph_path: str) -> dict[str, Any]:
@@ -69,8 +72,6 @@ def plan_route(
     goal_aliases: dict[str, list[str]],
     checkpoints: dict[str, dict[str, Any]],
     edges: set[tuple[str, str]],
-    api_key: str,
-    model: str,
     planner_notes: str,
     max_attempts: int,
     publish_status: Callable[[str], None] | None = None,
@@ -87,8 +88,6 @@ def plan_route(
             goal_aliases=goal_aliases,
             checkpoints=checkpoints,
             edges=edges,
-            api_key=api_key,
-            model=model,
             planner_notes=planner_notes,
         )
         try:
@@ -104,7 +103,7 @@ def plan_route(
             last_error = str(exc)
             if publish_status is not None:
                 publish_status(
-                    f'Ignoring invalid route from Groq on attempt {attempt}/'
+                    f'Ignoring invalid route from LLM on attempt {attempt}/'
                     f'{max_attempts}: {last_error}'
                 )
             continue
@@ -112,7 +111,7 @@ def plan_route(
         return decision['goal_alias'], route
 
     raise RuntimeError(
-        'Groq did not return a valid legal route after '
+        'LLM did not return a valid legal route after '
         f'{max_attempts} attempts: {last_error}'
     )
 
@@ -126,90 +125,90 @@ def make_decision(
     goal_aliases: dict[str, list[str]],
     checkpoints: dict[str, dict[str, Any]],
     edges: set[tuple[str, str]],
-    api_key: str,
-    model: str,
     planner_notes: str,
 ) -> dict[str, Any]:
     """Ask the LLM to choose a legal route through the checkpoint graph."""
-    if not api_key:
+    provider = os.environ.get('LLM_PROVIDER', '')
+    model = os.environ.get('LLM_MODEL', '')
+
+    if not provider:
         raise RuntimeError(
-            'Missing Groq API key. Set the groq_api_key parameter or '
-            'GROQ_API_KEY environment variable.'
+            'Missing LLM_PROVIDER environment variable. '
+            'Set it in your .env file (e.g. LLM_PROVIDER=openai).'
+        )
+    if not model:
+        raise RuntimeError(
+            'Missing LLM_MODEL environment variable. '
+            'Set it in your .env file (e.g. LLM_MODEL=gpt-4o).'
         )
 
-    payload = {
-        'model': model,
-        'temperature': 0.2,
-        'messages': [
-            {
-                'role': 'system',
-                'content': (
-                    'You are the high-level route decision layer for a '
-                    'TurtleBot. '
-                    'Do not create arbitrary coordinates. '
-                    'Choose only from the checkpoint graph provided in '
-                    'the user JSON. '
-                    'Output JSON only with this schema: '
-                    '{"goal_alias": string, "route": [string, ...], '
-                    '"reason": string}. '
-                    'The route must begin at current_checkpoint, end at a '
-                    'checkpoint allowed by the chosen goal_alias, and '
-                    'only use allowed edges that are not blocked. '
-                    f'{planner_notes}'
-                ),
-            },
-            {
-                'role': 'user',
-                'content': json.dumps(
-                    build_decision_context(
-                        goal_request=goal_request,
-                        blocked_edges=blocked_edges,
-                        failure_reason=failure_reason,
-                        current_checkpoint=current_checkpoint,
-                        goal_aliases=goal_aliases,
-                        checkpoints=checkpoints,
-                        edges=edges,
-                    )
-                ),
-            },
-        ],
-        'response_format': {'type': 'json_object'},
-    }
+    try:
+        llm = init_chat_model(
+            model=model,
+            model_provider=provider,
+            temperature=0.2,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            f'Failed to initialise LLM ({provider}/{model}): {exc}'
+        ) from exc
 
-    body = json.dumps(payload).encode('utf-8')
-    http_request = request.Request(
-        'https://api.groq.com/openai/v1/chat/completions',
-        data=body,
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'nav2-llm-demo/0.1 (+groq api client)',
-        },
-        method='POST',
+    system_content = (
+        'You are the high-level route decision layer for a TurtleBot. '
+        'Do not create arbitrary coordinates. '
+        'Choose only from the checkpoint graph provided in the user JSON. '
+        'Respond with valid JSON only — no markdown, no explanation, no '
+        'code fences. Use exactly this schema: '
+        '{"goal_alias": string, "route": [string, ...], "reason": string}. '
+        'The route must begin at current_checkpoint, end at a checkpoint '
+        'allowed by the chosen goal_alias, and only use allowed edges that '
+        f'are not blocked. {planner_notes}'
     )
 
-    try:
-        with request.urlopen(http_request, timeout=30) as response:
-            response_body = response.read().decode('utf-8')
-    except error.HTTPError as exc:
-        details = exc.read().decode('utf-8', errors='replace')
-        raise RuntimeError(
-            f'Groq API returned HTTP {exc.code}: {details}'
-        ) from exc
-    except error.URLError as exc:
-        raise RuntimeError(f'Could not reach Groq API: {exc.reason}') from exc
+    messages = [
+        SystemMessage(content=system_content),
+        HumanMessage(
+            content=json.dumps(
+                build_decision_context(
+                    goal_request=goal_request,
+                    blocked_edges=blocked_edges,
+                    failure_reason=failure_reason,
+                    current_checkpoint=current_checkpoint,
+                    goal_aliases=goal_aliases,
+                    checkpoints=checkpoints,
+                    edges=edges,
+                )
+            )
+        ),
+    ]
 
-    response_json = json.loads(response_body)
-    content = response_json['choices'][0]['message']['content']
-    decision = json.loads(content)
+    try:
+        response = llm.invoke(messages)
+    except Exception as exc:
+        raise RuntimeError(f'LLM request failed: {exc}') from exc
+
+    content = response.content
+    # Strip markdown code fences if a model wraps its output anyway.
+    content = content.strip()
+    if content.startswith('```'):
+        content = content.split('```')[1]
+        if content.startswith('json'):
+            content = content[4:]
+
+    try:
+        decision = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f'LLM returned non-JSON response: {exc}'
+        ) from exc
 
     if 'goal_alias' not in decision or 'route' not in decision:
         raise RuntimeError(
-            'Groq response must include goal_alias and route fields'
+            'LLM response must include goal_alias and route fields'
         )
 
     if not isinstance(decision['route'], list):
-        raise RuntimeError('Groq route must be a JSON array')
+        raise RuntimeError('LLM route must be a JSON array')
 
     decision.setdefault('reason', '')
     return decision
