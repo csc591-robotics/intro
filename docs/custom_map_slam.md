@@ -144,3 +144,4 @@ Copy them into your package config, e.g. `intro/src/nav2_llm_demo/config/`, and 
 
 - [run_llm_nav_phases.md](run_llm_nav_phases.md) — how this repo launches Gazebo, Nav2, and the LLM node
 - [architecture.md](architecture.md) — system overview
+- [`custom_map_builder` package README](../src/custom_map_builder/README.md) — load a hand-made PGM/YAML in Gazebo + RViz and **click for map-frame coordinates**
