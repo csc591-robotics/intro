@@ -1,6 +1,22 @@
+from pathlib import Path
+
 from setuptools import find_packages, setup
 
 package_name = 'custom_map_builder'
+
+_pkg_root = Path(__file__).resolve().parent
+_maps_dir = _pkg_root / 'maps'
+# Every regular file under maps/ (any depth) is installed under share/.../maps/ on
+# colcon build / pip install — not at ros2 launch time.
+_map_install_paths = sorted(
+    str(p.relative_to(_pkg_root))
+    for p in _maps_dir.rglob('*')
+    if p.is_file() and not any(part.startswith('.') for part in p.relative_to(_maps_dir).parts)
+)
+if not _map_install_paths:
+    raise RuntimeError(
+        f'Expected at least one file in {_maps_dir} (e.g. default.yaml).'
+    )
 
 setup(
     name=package_name,
@@ -11,10 +27,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/map_builder.launch.py']),
         ('share/' + package_name + '/rviz', ['rviz/map_builder.rviz']),
-        (
-            'share/' + package_name + '/maps',
-            ['maps/default.pgm', 'maps/default.yaml'],
-        ),
+        ('share/' + package_name + '/maps', _map_install_paths),
         (
             'share/' + package_name + '/scripts',
             ['scripts/generate_y_corridor_map.py'],

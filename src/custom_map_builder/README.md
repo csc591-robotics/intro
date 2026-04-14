@@ -15,6 +15,8 @@ colcon build --packages-select custom_map_builder
 source install/setup.bash
 ```
 
+**Maps folder:** Everything under `src/custom_map_builder/maps/` (any `.pgm`, `.yaml`, or other regular files, including in subfolders) is **copied into `install/.../share/custom_map_builder/maps/` when you build** (`colcon build`). Add or change files there, then rebuild and `source install/setup.bash` so `ros2 launch` sees them. Hidden files and dot-directories are skipped.
+
 ## Run (Gazebo + map + RViz + click echo)
 
 ```bash
@@ -33,14 +35,35 @@ Optional arguments:
 | `launch_gazebo` | `true` | `false` = map + RViz + echo only (no sim) |
 | `launch_rviz` | `true` | `false` = no RViz window |
 
-Example with your own map:
+### Coordinates only (no Gazebo, no TurtleBot3)
+
+To **read map-frame \((x, y)\)** from clicks without starting the simulator or the Burger, disable Gazebo and turn off sim time (nothing publishes `/clock`):
+
+```bash
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch custom_map_builder map_builder.launch.py \
+  launch_gazebo:=false \
+  use_sim_time:=false
+```
+
+You still get **`map_server`**, the static **`map` → `odom`** transform, **RViz**, and **`map_click_echo`**. No `TURTLEBOT3_MODEL` is required for this mode. Use the **Publish Point** steps in [Click coordinates](#click-coordinates) below.
+
+Example with your own YAML (after it is installed under `share/.../maps/` or via an absolute path):
+
+```bash
+ros2 launch custom_map_builder map_builder.launch.py \
+  launch_gazebo:=false \
+  use_sim_time:=false \
+  map_yaml:=default.yaml
+```
+
+With **Gazebo + robot** (default), point at a map by absolute path or by filename under `share/.../maps/`:
 
 ```bash
 ros2 launch custom_map_builder map_builder.launch.py \
   map_yaml:=/full/path/to/my_map.yaml
 ```
-
-Or install a file under `maps/` and pass the filename:
 
 ```bash
 ros2 launch custom_map_builder map_builder.launch.py map_yaml:=default.yaml
