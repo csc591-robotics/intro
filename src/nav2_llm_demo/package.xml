@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>nav2_llm_demo</name>
+  <version>0.0.0</version>
+  <description>LangChain-driven route decision layer for Nav2 waypoint missions.</description>
+  <maintainer email="akaluri@ncsu.edu">Anirudh, Brennen, Miles</maintainer>
+  <license>MIT-0</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav2_simple_commander</depend>
+  <depend>nav2_bringup</depend>
+  <depend>ament_index_python</depend>
+  <depend>launch</depend>
+  <depend>launch_ros</depend>
+  <depend>python3-langchain</depend>
+  <depend>python3-langchain-core</depend>
+  <depend>python3-langchain-openai</depend>
+  <depend>python3-langchain-anthropic</depend>
+  <depend>python3-langchain-mistralai</depend>
+  <depend>python3-langchain-ollama</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

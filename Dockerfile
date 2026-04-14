@@ -16,23 +16,34 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Make default shell in Dockerfile bash instead of sh
 SHELL ["/bin/bash", "-c"]
 
+# Install Gazebo
+RUN sudo apt-get update && \
+    sudo apt-get install -y --no-install-recommends \
+    ros-${ROS_DISTRO}-ros-gz \
+    ros-${ROS_DISTRO}-nav2-simple-commander \
+    ros-${ROS_DISTRO}-nav2-bringup \
+    ros-${ROS_DISTRO}-turtlebot3-gazebo \
+    ros-${ROS_DISTRO}-turtlebot3-navigation2 \
+    ros-${ROS_DISTRO}-turtlebot3-description \
+    ros-${ROS_DISTRO}-cv-bridge \
+    python3-pip && \
+    sudo apt-get clean && \
+    sudo rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 RUN sudo apt-get update && \
     sudo apt-get install -y --no-install-recommends \
-    vim \
-    ros-${ROS_DISTRO}-turtlebot3* \
-    ros-${ROS_DISTRO}-gazebo-* \
+    python3-pil \
     && sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/*
+
+RUN sudo python3 -m pip install --no-cache-dir langgraph langchain langchain-core langchain-openai langchain-anthropic langchain-mistralai langchain-ollama
 
 # Source ROS workspace automatically when new terminal is opened
 RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
     echo "[ -f /workspace/install/setup.bash ] && . /workspace/install/setup.bash" >> ~/.bashrc
-# Source gazebo
-RUN sudo echo ". /usr/share/gazebo-11/setup.bash" >> ~/.bashrc
-# Set the turtlebot model
-RUN sudo echo "export TURTLEBOT3_MODEL=burger" >> ~/.bashrc
 
+# Source ROS in the main terminal
 COPY ros_entrypoint.sh /ros_entrypoint.sh
 
 # Source ROS in the main terminal

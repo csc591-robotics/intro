@@ -1,0 +1,14 @@
+llm_nav_node:
+  ros__parameters:
+    request_topic: "/navigation_request"
+    status_topic: "/navigation_status"
+    active_goal_pose_topic: "/active_goal_pose"
+    map_frame: "map"
+    navigation_timeout_sec: 90.0
+    stall_timeout_sec: 15.0
+    stall_min_progress_m: 0.15
+    max_replans: 3
+    planner_notes: >-
+      Pick routes through the allowed checkpoint graph. Prefer progress toward
+      the requested goal, avoid blocked edges, and choose an alternate branch
+      when a segment fails.

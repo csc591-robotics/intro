@@ -1,0 +1,28 @@
+# Poses in the map frame (meters; quaternion x, y, z, w).
+# yaw_rad is informational (from RViz); use orientation for /initialpose-style messages.
+# Fill in source/destination for each PGM as you record them from RViz 2D Pose Estimate.
+
+frame_id: map
+
+maps:
+  default.pgm:
+    source: null
+    destination: null
+
+  diamond_blocked.pgm:
+    source:
+      position: {x: 13.1001, y: 11.3377, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.991511, w: 0.130025}
+      yaw_rad: 2.88
+    destination:
+      position: {x: 10.2383, y: 19.1664, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.723957, w: 0.689845}
+      yaw_rad: 1.61904
+
+  diamond_path.pgm:
+    source: null
+    destination: null
+
+  y_path.pgm:
+    source: null
+    destination: null

@@ -1,0 +1,12 @@
+image: custom_map.pgm #pgm stands for portable greymap. 
+mode: trinary #map is a grid of cell, each cell is either occupied, free or unknwn
+resolution: 0.05
+origin: [-2.94, -2.56, 0] #conventionally the origin in map file is lower left pixel. 
+#in this case the origin is at (x,y) and rotating the grid by yaw around th corner
+negate: 0
+#black means occupied, white means free
+#some tools export the opposite where white means occupied 
+#negate tells whether to flip or not. 0 is usual interpretation. 1 means flip.
+occupied_thresh: 0.65 #each pixel has value 0 to 255. 255 is white. this number is pixel intensity
+#each pixel intensity is converted to probability of occupancy. 
+free_thresh: 0.25 #each pixel intensity is converted to probability of occupancy. 

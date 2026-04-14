@@ -1,3 +1,8 @@
+# Gazebo / RViz GUI from the container needs X11 on the host. On Linux, run
+# once per graphical login session (before `docker compose up`):
+#   xhost +local:docker
+# If that is not recognized, try:  xhost +local:
+# macOS: use XQuartz; DISPLAY for containers is a separate setup from Linux.
 services:
   autonomous_pathing_llm:
     image: autonomous_pathing_llm
@@ -25,4 +30,5 @@ services:
       - QT_X11_NO_MITSHM=1
       - ROS_DOMAIN_ID=42
       - ROS_HOME=/workspace/.ros
+      - TURTLEBOT3_MODEL=${TURTLEBOT3_MODEL:-burger}
     command: bash
