@@ -272,6 +272,7 @@ class LlmAgentNode(Node):
 
         max_steps = self._int("max_agent_steps")
         goal_tol = self._float("goal_tolerance_m")
+        logged_run_dir = False
 
         for step in range(1, max_steps + 1):
             if not rclpy.ok():
@@ -282,6 +283,9 @@ class LlmAgentNode(Node):
             try:
                 summary = agent.step()
                 self._publish_status(f"  -> {summary}")
+                if not logged_run_dir and agent.run_dir:
+                    self._publish_status(f"Debug images saved to: {agent.run_dir}")
+                    logged_run_dir = True
             except Exception as exc:
                 self._publish_status(f"Agent error on step {step}: {exc}")
                 self.get_logger().error(f"Agent step {step} failed: {exc}")

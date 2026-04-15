@@ -9,9 +9,12 @@ can be injected into the conversation as multimodal HumanMessages -- this is
 required for the vision LLM to actually *see* the map.
 """
 
+import base64
 import json
 import math
 import os
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Protocol
 
 from langchain.chat_models import init_chat_model
@@ -257,6 +260,52 @@ class VisionNavigationAgent:
         )
         self._llm_with_tools = self._llm.bind_tools(TOOL_SCHEMAS)
         self._messages: list[Any] = []
+        self._step_num = 0
+        self._run_dir: Path | None = None
+
+    def _ensure_run_dir(self) -> Path:
+        """Create and return the output directory for this run's debug images."""
+        if self._run_dir is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            workspace = os.environ.get("WORKSPACE_DIR", "/workspace")
+            self._run_dir = Path(workspace) / "llm_agent_runs" / timestamp
+            self._run_dir.mkdir(parents=True, exist_ok=True)
+        return self._run_dir
+
+    def _save_step_image(self, img_b64: str, tool_result: str) -> None:
+        """Save the map image and metadata for this step."""
+        run_dir = self._ensure_run_dir()
+        prefix = f"step_{self._step_num:03d}"
+
+        png_path = run_dir / f"{prefix}_map.png"
+        png_path.write_bytes(base64.b64decode(img_b64))
+
+        meta_path = run_dir / f"{prefix}_meta.txt"
+        meta_lines = [
+            f"Step: {self._step_num}",
+            f"Tool result: {tool_result}",
+            "",
+        ]
+
+        # Include the LLM's reasoning from the last AI message
+        for msg in reversed(self._messages):
+            content = getattr(msg, "content", "")
+            role = getattr(msg, "type", "")
+            if role == "ai" and isinstance(content, str) and content.strip():
+                meta_lines.append(f"LLM reasoning: {content}")
+                break
+
+        # Include tool calls the LLM made
+        for msg in reversed(self._messages):
+            calls = getattr(msg, "tool_calls", None)
+            if calls:
+                for tc in calls:
+                    meta_lines.append(
+                        f"Tool call: {tc['name']}({json.dumps(tc.get('args', {}))})"
+                    )
+                break
+
+        meta_path.write_text("\n".join(meta_lines))
 
     def initialize(self, source_x: float, source_y: float, dest_x: float, dest_y: float) -> None:
         """Set up the initial conversation."""
@@ -277,6 +326,7 @@ class VisionNavigationAgent:
         May involve multiple tool calls in one turn (parallel tool calling).
         Returns a summary of what happened.
         """
+        self._step_num += 1
         response = self._llm_with_tools.invoke(self._messages)
         self._messages.append(response)
 
@@ -285,6 +335,7 @@ class VisionNavigationAgent:
             return f"Agent message (no tool calls): {response.content}"
 
         pending_image: str | None = None
+        pending_text: str = ""
         summaries: list[str] = []
 
         for tc in tool_calls:
@@ -301,6 +352,7 @@ class VisionNavigationAgent:
 
             if image_b64 is not None:
                 pending_image = image_b64
+                pending_text = text_result
 
         # Inject the map image as a multimodal HumanMessage so the vision LLM
         # can actually see it on the next call.
@@ -316,6 +368,7 @@ class VisionNavigationAgent:
                     },
                 ])
             )
+            self._save_step_image(pending_image, pending_text)
 
         return " | ".join(summaries)
 
@@ -327,6 +380,11 @@ class VisionNavigationAgent:
             if isinstance(content, str) and "REACHED -" in content:
                 return True
         return False
+
+    @property
+    def run_dir(self) -> str | None:
+        """Path to the debug output directory for this run, or None."""
+        return str(self._run_dir) if self._run_dir else None
 
 
 def build_agent(
