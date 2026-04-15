@@ -152,54 +152,6 @@ TOOL_SCHEMAS = [
 
 
 # ---------------------------------------------------------------------------
-# Tool execution
-# ---------------------------------------------------------------------------
-
-def _execute_tool(name: str, args: dict[str, Any]) -> tuple[str, str | None]:
-    """Run a tool and return (text_result, base64_image_or_None)."""
-    ctrl = _ctrl()
-
-    if name == "move_forward":
-        result = ctrl.move_forward(args.get("distance_meters", 0.0))
-        return result, None
-
-    if name == "rotate":
-        result = ctrl.rotate(args.get("angle_degrees", 0.0))
-        return result, None
-
-    if name == "get_map_view":
-        x, y, yaw = ctrl.get_pose()
-        img_b64 = render_annotated_map(
-            map_yaml_path=ctrl.map_yaml_path,
-            robot_x=x, robot_y=y, robot_yaw=yaw,
-            dest_x=ctrl.dest_x, dest_y=ctrl.dest_y,
-            source_x=ctrl.source_x, source_y=ctrl.source_y,
-            crop_radius_m=10.0,
-            output_size=512,
-        )
-        dist = math.hypot(ctrl.dest_x - x, ctrl.dest_y - y)
-        text = (
-            f"Map view captured. Robot at ({x:.2f}, {y:.2f}), "
-            f"heading {math.degrees(yaw):.1f} deg. "
-            f"Distance to destination: {dist:.2f} m."
-        )
-        return text, img_b64
-
-    if name == "get_robot_pose":
-        x, y, yaw = ctrl.get_pose()
-        return json.dumps({"x": round(x, 4), "y": round(y, 4), "yaw_degrees": round(math.degrees(yaw), 2)}), None
-
-    if name == "check_goal_reached":
-        x, y, _ = ctrl.get_pose()
-        dist = math.hypot(ctrl.dest_x - x, ctrl.dest_y - y)
-        if dist < 0.5:
-            return f"REACHED - {dist:.2f} meters from goal. Navigation complete!", None
-        return f"NOT_REACHED - {dist:.2f} meters remaining to destination ({ctrl.dest_x:.2f}, {ctrl.dest_y:.2f}).", None
-
-    return f"Unknown tool: {name}", None
-
-
-# ---------------------------------------------------------------------------
 # System prompt
 # ---------------------------------------------------------------------------
 
@@ -272,8 +224,11 @@ class VisionNavigationAgent:
             self._run_dir.mkdir(parents=True, exist_ok=True)
         return self._run_dir
 
-    def _save_step_image(self, img_b64: str, tool_result: str) -> None:
-        """Save the map image and metadata for this step."""
+    def _save_step_image(self, tool_result: str) -> None:
+        """Save the map image and metadata for this step. This is only used for debug/log purposes."""
+
+        img_b64 = self.get_map_b64()
+
         run_dir = self._ensure_run_dir()
         prefix = f"step_{self._step_num:03d}"
 
@@ -334,8 +289,6 @@ class VisionNavigationAgent:
         if not tool_calls:
             return f"Agent message (no tool calls): {response.content}"
 
-        pending_image: str | None = None
-        pending_text: str = ""
         summaries: list[str] = []
 
         for tc in tool_calls:
@@ -343,34 +296,81 @@ class VisionNavigationAgent:
             args = tc.get("args", {})
             tc_id = tc["id"]
 
-            text_result, image_b64 = _execute_tool(name, args)
+            text_result, img_b64 = self._execute_tool(name, args)
             summaries.append(f"{name}: {text_result}")
 
             self._messages.append(
                 ToolMessage(content=text_result, tool_call_id=tc_id)
             )
 
-            if image_b64 is not None:
-                pending_image = image_b64
-                pending_text = text_result
-
-        # Inject the map image as a multimodal HumanMessage so the vision LLM
-        # can actually see it on the next call.
-        if pending_image is not None:
-            self._messages.append(
-                HumanMessage(content=[
-                    {"type": "text", "text": "Here is the current map view:"},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{pending_image}",
+            if img_b64 is not None:
+                self._messages.append(
+                    HumanMessage(content=[
+                        {"type": "text", "text": "Here is the current map view:"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{img_b64}",
+                            },
                         },
-                    },
-                ])
-            )
-            self._save_step_image(pending_image, pending_text)
+                    ])
+                )
+
+        self._save_step_image(",\n".join(summaries))
 
         return " | ".join(summaries)
+
+    def get_map_b64(self):
+        ctrl = _ctrl()
+        x, y, yaw = ctrl.get_pose()
+        img_b64 = render_annotated_map(
+            map_yaml_path=ctrl.map_yaml_path,
+            robot_x=x, robot_y=y, robot_yaw=yaw,
+            dest_x=ctrl.dest_x, dest_y=ctrl.dest_y,
+            source_x=ctrl.source_x, source_y=ctrl.source_y,
+            crop_radius_m=10.0,
+            output_size=512,
+        )
+        return img_b64
+
+
+    def _execute_tool(self, name: str, args: dict[str, Any]) -> tuple[str, str | None]:
+        """Run a tool and return (text_result, base64_image_or_None)."""
+        ctrl = _ctrl()
+
+        if name == "move_forward":
+            result = ctrl.move_forward(args.get("distance_meters", 0.0))
+            return result, None
+
+        if name == "rotate":
+            result = ctrl.rotate(args.get("angle_degrees", 0.0))
+            return result, None
+
+        if name == "get_map_view":
+            x, y, yaw = ctrl.get_pose()
+
+            img_b64 = self.get_map_b64()
+
+            dist = math.hypot(ctrl.dest_x - x, ctrl.dest_y - y)
+            text = (
+                f"Map view captured. Robot at ({x:.2f}, {y:.2f}), "
+                f"heading {math.degrees(yaw):.1f} deg. "
+                f"Distance to destination: {dist:.2f} m."
+            )
+            return text, img_b64
+
+        if name == "get_robot_pose":
+            x, y, yaw = ctrl.get_pose()
+            return json.dumps({"x": round(x, 4), "y": round(y, 4), "yaw_degrees": round(math.degrees(yaw), 2)}), None
+
+        if name == "check_goal_reached":
+            x, y, _ = ctrl.get_pose()
+            dist = math.hypot(ctrl.dest_x - x, ctrl.dest_y - y)
+            if dist < 0.5:
+                return f"REACHED - {dist:.2f} meters from goal. Navigation complete!", None
+            return f"NOT_REACHED - {dist:.2f} meters remaining to destination ({ctrl.dest_x:.2f}, {ctrl.dest_y:.2f}).", None
+
+        return f"Unknown tool: {name}", None
 
     @property
     def goal_reached_in_last_step(self) -> bool:
