@@ -3,7 +3,6 @@
 Starts:
   - map_server (loads the custom PGM/YAML map)
   - lifecycle_manager (activates map_server)
-  - static TF: map -> odom (identity)
   - llm_agent_node (the LangGraph agent)
   - optionally RViz2 with a pre-configured display layout
 
@@ -59,13 +58,6 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
-    static_tf = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        name="map_to_odom_static",
-        arguments=["0", "0", "0", "0", "0", "0", "map", "odom"],
-    )
-
     agent_node = Node(
         package="nav2_llm_demo",
         executable="llm_agent_node",
@@ -106,7 +98,6 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("rviz_config", default_value=default_rviz_config),
         map_server,
         lifecycle_mgr,
-        static_tf,
         agent_node,
         rviz_node,
     ])

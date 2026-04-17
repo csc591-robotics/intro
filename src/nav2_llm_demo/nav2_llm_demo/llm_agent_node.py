@@ -1,17 +1,18 @@
 """ROS 2 node that runs a vision-based LLM agent to navigate a robot.
 
 The node:
-- Subscribes to /odom for robot position tracking
-- Publishes to /cmd_vel for direct robot control
-- Uses TF2 to get accurate map->base_link transforms
-- Runs a VisionNavigationAgent that sees an annotated map and calls tools
+- subscribes to /odom for robot position tracking
+- publishes to /cmd_vel for direct robot control
+- aligns map -> odom from the configured source pose and the first odom sample
+- uses TF2 when available, otherwise uses the aligned odom pose in the map frame
+- runs a VisionNavigationAgent that sees an annotated map and calls tools
 """
 
 import math
 import threading
 import time
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TransformStamped, Twist
 from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
@@ -25,6 +26,36 @@ def _yaw_from_quat(qx: float, qy: float, qz: float, qw: float) -> float:
     siny = 2.0 * (qw * qz + qx * qy)
     cosy = 1.0 - 2.0 * (qy * qy + qz * qz)
     return math.atan2(siny, cosy)
+
+
+def _quat_from_yaw(yaw: float) -> tuple[float, float, float, float]:
+    return 0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)
+
+
+def _compose_pose(
+    first: tuple[float, float, float],
+    second: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    fx, fy, fyaw = first
+    sx, sy, syaw = second
+    cos_yaw = math.cos(fyaw)
+    sin_yaw = math.sin(fyaw)
+    return (
+        fx + cos_yaw * sx - sin_yaw * sy,
+        fy + sin_yaw * sx + cos_yaw * sy,
+        math.atan2(math.sin(fyaw + syaw), math.cos(fyaw + syaw)),
+    )
+
+
+def _invert_pose(pose: tuple[float, float, float]) -> tuple[float, float, float]:
+    x, y, yaw = pose
+    cos_yaw = math.cos(yaw)
+    sin_yaw = math.sin(yaw)
+    return (
+        -cos_yaw * x - sin_yaw * y,
+        sin_yaw * x - cos_yaw * y,
+        -yaw,
+    )
 
 
 class LlmAgentNode(Node):
@@ -46,21 +77,27 @@ class LlmAgentNode(Node):
         self.declare_parameter("angular_speed", 0.5)
         self.declare_parameter("status_topic", "/navigation_status")
         self.declare_parameter("move_timeout_sec", 30.0)
+        self.declare_parameter("base_frame", "base_footprint")
 
         self._source_x = self._float("source_x")
         self._source_y = self._float("source_y")
+        self._source_yaw = self._float("source_yaw")
         self._dest_x = self._float("dest_x")
         self._dest_y = self._float("dest_y")
         self._map_yaml = self._str("map_yaml_path")
         self._linear_speed = self._float("linear_speed")
         self._angular_speed = self._float("angular_speed")
         self._move_timeout = self._float("move_timeout_sec")
+        self._base_frame = self._str("base_frame")
 
         self._pose_lock = threading.Lock()
-        self._odom_x = self._source_x
-        self._odom_y = self._source_y
-        self._odom_yaw = self._float("source_yaw")
+        self._odom_x = 0.0
+        self._odom_y = 0.0
+        self._odom_yaw = 0.0
         self._pose_ready = False
+        self._alignment_ready = False
+        self._map_to_odom: tuple[float, float, float] | None = None
+        self._odom_frame = "odom"
 
         self._cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         status_topic = self._str("status_topic")
@@ -72,6 +109,7 @@ class LlmAgentNode(Node):
 
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
+        self._static_tf_broadcaster = tf2_ros.StaticTransformBroadcaster(self)
 
         set_controller(self)
 
@@ -105,31 +143,19 @@ class LlmAgentNode(Node):
         return self._dest_y
 
     def get_pose(self) -> tuple[float, float, float]:
-        """Return (x, y, yaw) in the map frame via TF or odom fallback."""
-        try:
-            t = self._tf_buffer.lookup_transform("map", "base_link", rclpy.time.Time())
-            x = t.transform.translation.x
-            y = t.transform.translation.y
-            yaw = _yaw_from_quat(
-                t.transform.rotation.x,
-                t.transform.rotation.y,
-                t.transform.rotation.z,
-                t.transform.rotation.w,
-            )
-            with self._pose_lock:
-                self._odom_x = x
-                self._odom_y = y
-                self._odom_yaw = yaw
-            return x, y, yaw
-        except (
-            tf2_ros.LookupException,
-            tf2_ros.ConnectivityException,
-            tf2_ros.ExtrapolationException,
-        ):
-            pass
+        """Return (x, y, yaw) in the map frame."""
+        for base_frame in (self._base_frame, "base_link"):
+            pose = self._lookup_map_pose_via_tf(base_frame)
+            if pose is not None:
+                return pose
 
         with self._pose_lock:
-            return self._odom_x, self._odom_y, self._odom_yaw
+            if not self._alignment_ready or self._map_to_odom is None:
+                raise RuntimeError("Map alignment is not ready; no valid map-frame pose is available.")
+            return _compose_pose(
+                self._map_to_odom,
+                (self._odom_x, self._odom_y, self._odom_yaw),
+            )
 
     def move_forward(self, distance_m: float, speed: float | None = None) -> str:
         """Drive forward/backward by *distance_m* meters using cmd_vel."""
@@ -214,15 +240,72 @@ class LlmAgentNode(Node):
     def _stop(self) -> None:
         self._cmd_pub.publish(Twist())
 
+    def _lookup_map_pose_via_tf(self, base_frame: str) -> tuple[float, float, float] | None:
+        try:
+            t = self._tf_buffer.lookup_transform("map", base_frame, rclpy.time.Time())
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ):
+            return None
+
+        return (
+            t.transform.translation.x,
+            t.transform.translation.y,
+            _yaw_from_quat(
+                t.transform.rotation.x,
+                t.transform.rotation.y,
+                t.transform.rotation.z,
+                t.transform.rotation.w,
+            ),
+        )
+
+    def _publish_map_to_odom_transform(self) -> None:
+        with self._pose_lock:
+            if self._map_to_odom is None:
+                return
+            tx, ty, tyaw = self._map_to_odom
+            odom_frame = self._odom_frame
+
+        qx, qy, qz, qw = _quat_from_yaw(tyaw)
+        transform = TransformStamped()
+        transform.header.stamp = self.get_clock().now().to_msg()
+        transform.header.frame_id = "map"
+        transform.child_frame_id = odom_frame
+        transform.transform.translation.x = tx
+        transform.transform.translation.y = ty
+        transform.transform.translation.z = 0.0
+        transform.transform.rotation.x = qx
+        transform.transform.rotation.y = qy
+        transform.transform.rotation.z = qz
+        transform.transform.rotation.w = qw
+        self._static_tf_broadcaster.sendTransform(transform)
+
     def _odom_cb(self, msg: Odometry) -> None:
         pos = msg.pose.pose.position
         ori = msg.pose.pose.orientation
         yaw = _yaw_from_quat(ori.x, ori.y, ori.z, ori.w)
+        publish_alignment = False
         with self._pose_lock:
             self._odom_x = pos.x
             self._odom_y = pos.y
             self._odom_yaw = yaw
             self._pose_ready = True
+            self._odom_frame = msg.header.frame_id or "odom"
+            if not self._alignment_ready:
+                self._map_to_odom = _compose_pose(
+                    (self._source_x, self._source_y, self._source_yaw),
+                    _invert_pose((self._odom_x, self._odom_y, self._odom_yaw)),
+                )
+                self._alignment_ready = True
+                publish_alignment = True
+
+        if publish_alignment:
+            self._publish_map_to_odom_transform()
+            self._publish_status(
+                "Aligned map->odom from the configured source pose and first odometry sample."
+            )
 
     def _publish_status(self, message: str) -> None:
         msg = String()
@@ -244,16 +327,16 @@ class LlmAgentNode(Node):
     # ------------------------------------------------------------------
 
     def _run_agent(self) -> None:
-        """Wait for odom, build the agent, and run the navigation loop."""
+        """Wait for odom alignment, build the agent, and run the navigation loop."""
         self.get_logger().info("Waiting for odometry data...")
         while rclpy.ok():
             with self._pose_lock:
-                if self._pose_ready:
+                if self._pose_ready and self._alignment_ready:
                     break
             time.sleep(0.2)
 
         self._publish_status(
-            f"Odometry received. Starting navigation from "
+            f"Odometry aligned to map. Starting navigation from "
             f"({self._source_x:.2f}, {self._source_y:.2f}) to "
             f"({self._dest_x:.2f}, {self._dest_y:.2f})"
         )
