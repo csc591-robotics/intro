@@ -136,6 +136,48 @@ Ensure `echo $DISPLAY` is set on the host when you start Compose (e.g. `:0` or `
 
 `xhost` on the Mac does not apply the same way. You typically need **XQuartz**, configure it to accept network connections, and point the container at your host’s display (Docker Desktop networking differs from Linux `network_mode: host`). Follow a ROS-on-Docker + XQuartz guide if you run the GUI from a container on Mac.
 
+## Rasterize a .world into an RViz map (`world_to_map` package)
+
+Inside the container:
+
+```bash
+cd /workspace/intro
+colcon build --packages-select world_to_map
+source install/setup.bash
+# List every world the runner knows about (originals + collection).
+bash src/world_to_map/run_world_to_map.sh
+# Pick one — examples below:
+bash src/world_to_map/run_world_to_map.sh diamond_map
+bash src/world_to_map/run_world_to_map.sh workshop_example
+bash src/world_to_map/run_world_to_map.sh house
+```
+
+The runner also searches `intro/world_files/gazebo_models_worlds_collection/worlds/`
+and points `GAZEBO_MODEL_PATH` at that collection's `models/` so every
+`model://...` include resolves both for Gazebo (visual render) and for the
+rasterizer (RViz occupancy grid).
+
+It generates `intro/src/world_to_map/maps/<name>.{pgm,yaml,world_map.yaml}`
+and starts Gazebo + map_server + RViz with a TurtleBot3 spawned at the
+origin. In a SECOND terminal, drive it with the bundled WASDX teleop
+(`w`/`x` forward-back, `a`/`d` turn, `s` stop, `q` quit):
+
+```bash
+docker compose exec autonomous_pathing_llm bash
+export TURTLEBOT3_MODEL=burger
+source /opt/ros/humble/setup.bash && source install/setup.bash
+ros2 run world_to_map teleop_wasdx
+```
+
+By default the rasterized map sits in the **positive quadrant** with its
+bottom-left corner at the map frame origin (0, 0), and the launch
+publishes a static `map -> odom` transform with the matching offset so
+2 m driven in Gazebo still shows as 2 m on the RViz map. Set
+`ORIGIN_MODE=world` to make `map` frame identical to Gazebo's `world`
+frame instead. See `src/world_to_map/README.md` for all env overrides
+(`RESOLUTION`, `PADDING`, `Z_MIN/MAX`, `X_POSE/Y_POSE/YAW`, `ORIGIN_MODE`,
+`FORCE`, `EXTRA_GAZEBO_MODEL_PATH`).
+
 ## Step 2: Start LangGraph controller
 docker compose exec autonomous_pathing_llm bash
 source /opt/ros/humble/setup.bash

@@ -1,0 +1,64 @@
+schema_version: 2
+generated_by: world_to_map.rasterize_world
+source_world: /workspace/world_files/workshop_example.world
+map_yaml: workshop_example.yaml
+map_pgm: workshop_example.pgm
+resolution: 0.05
+origin:
+- 0.0
+- 0.0
+- 0.0
+image_size_px:
+- 168
+- 134
+world_extent_m:
+- 8.4
+- 6.7
+world_aabb:
+  min:
+  - -3.204508369507518
+  - -2.3535302754750114
+  max:
+  - 3.195007713627361
+  - 2.32356
+padded_aabb:
+  min:
+  - -4.2045083695075185
+  - -3.3535302754750114
+  max:
+  - 4.195007713627361
+  - 3.32356
+padding_m: 1.0
+z_band_m:
+- 0.0
+- 0.4
+origin_mode: bottom-left
+world_to_map_offset:
+- 4.2045083695075185
+- 3.3535302754750114
+frames:
+  map_frame: map
+  world_frame: world
+  map_to_odom_translation:
+  - 4.2045083695075185
+  - 3.3535302754750114
+  - 0.0
+model_paths:
+- /workspace/world_files/gazebo_models_worlds_collection/models
+stats:
+  boxes: 23
+  cylinders: 5
+  includes_resolved: 20
+  includes_unresolved:
+  - model://cordless_drill
+  - model://monkey_wrench
+  - model://monkey_wrench
+  - model://first_2015_trash_can
+  - model://hammer
+  - model://hammer
+  - model://standpipe
+  - model://washer
+  - model://washer
+  skipped_mesh: 1
+  skipped_floor: 4
+  skipped_other: 0
