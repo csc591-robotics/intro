@@ -46,6 +46,18 @@ class RobotController(Protocol):
     def get_navigation_context(self) -> dict[str, Any]:
         ...
 
+    def turn_toward_goal(self) -> str:
+        ...
+
+    def advance_step(self) -> str:
+        ...
+
+    def recover_to_open_side(self) -> str:
+        ...
+
+    def back_up(self) -> str:
+        ...
+
     @property
     def map_yaml_path(self) -> str: ...
     @property
@@ -84,45 +96,44 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
-            "name": "move_forward",
+            "name": "turn_toward_goal",
             "description": (
-                "Move the robot forward by the given number of meters. "
-                "Use positive values to go forward, negative to go backward. "
-                "For positive moves, the grounded controller chooses the exact "
-                "safe step size, so treat the number as an intent to advance "
-                "rather than an exact geometric command."
+                "Rotate the robot toward the goal using grounded heading logic. "
+                "Use this instead of choosing small raw turn angles yourself."
             ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "distance_meters": {
-                        "type": "number",
-                        "description": "Distance in meters (positive=forward, negative=backward).",
-                    },
-                },
-                "required": ["distance_meters"],
-            },
+            "parameters": {"type": "object", "properties": {}},
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "rotate",
+            "name": "advance_step",
             "description": (
-                "Rotate the robot in place by the given angle in degrees. "
-                "Positive = counter-clockwise (left), negative = clockwise (right). "
-                "Example: rotate(90) turns left, rotate(-90) turns right."
+                "Advance toward the goal using the grounded controller. "
+                "The controller chooses the exact safe forward step size."
             ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "angle_degrees": {
-                        "type": "number",
-                        "description": "Rotation angle in degrees.",
-                    },
-                },
-                "required": ["angle_degrees"],
-            },
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "recover_to_open_side",
+            "description": (
+                "Run a deterministic recovery maneuver toward the more open side. "
+                "Use this after blocked moves or regressions instead of guessing a raw turn."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "back_up",
+            "description": (
+                "Reverse by a short deterministic amount to escape tight spaces."
+            ),
+            "parameters": {"type": "object", "properties": {}},
         },
     },
     {
@@ -132,7 +143,7 @@ TOOL_SCHEMAS = [
             "description": (
                 "Get grounded navigation context from the map and current pose: "
                 "distance to goal, heading error, local obstacle clearance, "
-                "and recommended safe forward step."
+                "blocked streak, regression streak, and recommended safe forward step."
             ),
             "parameters": {"type": "object", "properties": {}},
         },
@@ -144,7 +155,7 @@ TOOL_SCHEMAS = [
             "description": (
                 "Capture an annotated top-down map image showing the robot "
                 "(red arrow), destination (green circle), and source (blue circle). "
-                "Call this FIRST and after every few moves to check progress."
+                "Call this FIRST and after every few high-level actions to check progress."
             ),
             "parameters": {"type": "object", "properties": {}},
         },
@@ -173,22 +184,22 @@ TOOL_SCHEMAS = [
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """\
-You are controlling a TurtleBot3 robot navigating a 2D occupancy-grid map.
+You are the high-level planner for a TurtleBot3 navigating a 2D occupancy-grid map.
 
 Your task: move the robot from its current position to the **destination** \
 (marked with a green circle on the map).
 
 Available tools:
 - get_navigation_context(): Get grounded spatial signals from the map. Use this
-before moving forward and after any move that does not improve progress.
+before deciding what to do next.
 - get_map_view(): See an annotated top-down map. The image will be shown to \
 you. Red arrow = robot position and heading. Green circle = destination. \
 Blue circle = start. Call this FIRST and after every few moves.
-- move_forward(distance_meters): Drive forward (positive) or backward \
-(negative). For forward motion, use this as an intent to advance; the \
-controller will choose the exact step size heuristically.
-- rotate(angle_degrees): Turn in place. Positive = left/CCW, negative = \
-right/CW.
+- turn_toward_goal(): Ask the controller to rotate toward the goal.
+- advance_step(): Ask the controller to make one grounded forward advance.
+- recover_to_open_side(): Ask the controller to perform a deterministic local
+recovery toward the more open side.
+- back_up(): Ask the controller to reverse a short amount.
 - get_robot_pose(): Get exact coordinates and heading as JSON.
 - check_goal_reached(): Check if you have arrived.
 
@@ -196,22 +207,21 @@ Strategy:
 1. Call get_map_view() to see the map and your position.
 2. Call get_navigation_context() to ground your next action in obstacle
 clearance and heading error.
-3. Determine the direction to the destination relative to your heading.
-4. Rotate to face the destination.
-5. Move forward when the heading is acceptable, checking the map and grounded
-context often.
-6. If a move increases distance to goal or recommended_step_m is small,
-reassess instead of repeating the same action.
+3. Decide the next high-level action instead of micromanaging geometry.
+4. Use turn_toward_goal() when heading_error_deg is large.
+5. Use advance_step() when the heading is acceptable and forward progress looks plausible.
+6. If blocked or regressing, prefer recover_to_open_side() or back_up() over repeating the same failed action.
 7. When close, call check_goal_reached() to verify arrival.
-8. Prefer corridors and open paths. If blocked, back up and try another angle.
+8. Prefer corridors and open paths. If a route keeps failing, switch strategy instead of dithering.
 
 Important:
 - The map image uses standard orientation: +X = RIGHT, +Y = UP.
 - Your heading (yaw) is measured counter-clockwise from +X axis.
 - Dark pixels = walls. White = free space. Gray = unknown.
-- Do not attempt forward motion when heading_error_deg is large.
+- Do not try to control exact turn angles or exact move distances yourself.
+- Do not attempt advance_step() when heading_error_deg is large.
 - Respect recommended_step_m from get_navigation_context().
-- Take small steps and check the map often to stay safe.
+- Use recovery tools after blocked or regressive outcomes instead of retrying the same action.
 """
 
 
@@ -374,12 +384,20 @@ class VisionNavigationAgent:
         if name == "get_navigation_context":
             return json.dumps(ctrl.get_navigation_context()), None
 
-        if name == "move_forward":
-            result = ctrl.move_forward(args.get("distance_meters", 0.0))
+        if name == "turn_toward_goal":
+            result = ctrl.turn_toward_goal()
             return result, None
 
-        if name == "rotate":
-            result = ctrl.rotate(args.get("angle_degrees", 0.0))
+        if name == "advance_step":
+            result = ctrl.advance_step()
+            return result, None
+
+        if name == "recover_to_open_side":
+            result = ctrl.recover_to_open_side()
+            return result, None
+
+        if name == "back_up":
+            result = ctrl.back_up()
             return result, None
 
         if name == "get_map_view":

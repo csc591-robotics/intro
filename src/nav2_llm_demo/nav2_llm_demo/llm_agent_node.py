@@ -63,7 +63,7 @@ def _invert_pose(pose: tuple[float, float, float]) -> tuple[float, float, float]
 
 
 class LlmAgentNode(Node):
-    """Vision-based LLM agent that directly controls the robot."""
+    """Vision-based LLM planner with deterministic local motion control."""
 
     def __init__(self) -> None:
         super().__init__("llm_agent_node")
@@ -97,6 +97,8 @@ class LlmAgentNode(Node):
         self._max_clearance_probe_m = 1.2
         self._last_progress_m: float | None = None
         self._regression_streak = 0
+        self._blocked_forward_streak = 0
+        self._navigation_abort_reason: str | None = None
 
         self._pose_lock = threading.Lock()
         self._odom_x = 0.0
@@ -172,11 +174,11 @@ class LlmAgentNode(Node):
         heading_error = math.degrees(
             math.atan2(math.sin(goal_heading - yaw), math.cos(goal_heading - yaw))
         )
-        forward_clearance = self._clearance_in_direction(x, y, yaw)
-        left_clearance = self._clearance_in_direction(x, y, yaw + math.pi / 2.0)
-        right_clearance = self._clearance_in_direction(x, y, yaw - math.pi / 2.0)
+        forward_free_space = self._clearance_in_direction(x, y, yaw)
+        left_free_space = self._clearance_in_direction(x, y, yaw + math.pi / 2.0)
+        right_free_space = self._clearance_in_direction(x, y, yaw - math.pi / 2.0)
         recommended_step = self._recommended_step(
-            forward_clearance,
+            forward_free_space,
             abs(heading_error),
             distance_to_goal,
             self._regression_streak,
@@ -184,14 +186,61 @@ class LlmAgentNode(Node):
         return {
             "distance_to_goal_m": round(distance_to_goal, 3),
             "heading_error_deg": round(heading_error, 1),
-            "forward_clearance_m": round(forward_clearance, 3),
-            "left_clearance_m": round(left_clearance, 3),
-            "right_clearance_m": round(right_clearance, 3),
+            "forward_clearance_m": round(forward_free_space, 3),
+            "left_clearance_m": round(left_free_space, 3),
+            "right_clearance_m": round(right_free_space, 3),
             "recommended_step_m": round(recommended_step, 3),
             "last_progress_m": None if self._last_progress_m is None else round(self._last_progress_m, 3),
+            "blocked_streak": self._blocked_forward_streak,
             "regression_streak": self._regression_streak,
             "in_known_free_space": self._is_known_free(x, y),
         }
+
+    def turn_toward_goal(self) -> str:
+        """Rotate toward the goal using deterministic heading logic."""
+        x, y, yaw = self.get_pose()
+        heading_to_goal = math.atan2(self._dest_y - y, self._dest_x - x)
+        heading_error_deg = math.degrees(
+            math.atan2(math.sin(heading_to_goal - yaw), math.cos(heading_to_goal - yaw))
+        )
+
+        if abs(heading_error_deg) < 5.0:
+            return f"Already roughly facing the goal. Heading error {heading_error_deg:.1f} deg."
+
+        turn_deg = max(-60.0, min(60.0, heading_error_deg))
+        return self.rotate(turn_deg)
+
+    def advance_step(self) -> str:
+        """Advance with controller-chosen step sizing."""
+        return self.move_forward(1.0)
+
+    def recover_to_open_side(self) -> str:
+        """Rotate toward the more open side, then attempt one grounded advance."""
+        x, y, yaw = self.get_pose()
+        left_free_space = self._clearance_in_direction(x, y, yaw + math.pi / 2.0)
+        right_free_space = self._clearance_in_direction(x, y, yaw - math.pi / 2.0)
+
+        if left_free_space == right_free_space:
+            turn_deg = 35.0
+            chosen_side = "left"
+        elif left_free_space > right_free_space:
+            turn_deg = 35.0
+            chosen_side = "left"
+        else:
+            turn_deg = -35.0
+            chosen_side = "right"
+
+        rotate_result = self.rotate(turn_deg)
+        advance_result = self.advance_step()
+        return (
+            f"Recovery chose the {chosen_side} side "
+            f"(left {left_free_space:.2f} m, right {right_free_space:.2f} m). "
+            f"{rotate_result} | {advance_result}"
+        )
+
+    def back_up(self) -> str:
+        """Back up by a short deterministic amount."""
+        return self.move_forward(-0.25)
 
     def move_forward(self, distance_m: float, speed: float | None = None) -> str:
         """Drive forward/backward by *distance_m* meters using cmd_vel."""
@@ -201,7 +250,9 @@ class LlmAgentNode(Node):
 
         x0, y0, yaw0 = self.get_pose()
         goal_before = math.hypot(self._dest_x - x0, self._dest_y - y0)
-        forward_clearance = self._clearance_in_direction(x0, y0, yaw0 if distance_m >= 0 else yaw0 + math.pi)
+        forward_free_space = self._clearance_in_direction(
+            x0, y0, yaw0 if distance_m >= 0 else yaw0 + math.pi
+        )
         heading_to_goal = math.atan2(self._dest_y - y0, self._dest_x - x0)
         heading_error_deg = abs(math.degrees(math.atan2(math.sin(heading_to_goal - yaw0), math.cos(heading_to_goal - yaw0))))
         requested_dist = abs(distance_m)
@@ -209,15 +260,25 @@ class LlmAgentNode(Node):
         direction = 1.0 if distance_m >= 0 else -1.0
         if direction > 0:
             safe_dist = self._recommended_step(
-                forward_clearance,
+                forward_free_space,
                 heading_error_deg,
                 goal_before,
                 self._regression_streak,
             )
             if safe_dist <= 0.05:
+                self._blocked_forward_streak += 1
+                blocked_msg = (
+                    f"Heuristic blocked forward move: free space ahead {forward_free_space:.2f} m, "
+                    f"heading error {heading_error_deg:.1f} deg. "
+                    f"Blocked streak: {self._blocked_forward_streak}/3."
+                )
+                if self._blocked_forward_streak >= 3:
+                    self._navigation_abort_reason = (
+                        "Stopping navigation after 3 consecutive blocked forward attempts."
+                    )
+                    return f"{blocked_msg} {self._navigation_abort_reason}"
                 return (
-                    f"Heuristic blocked forward move: clearance {forward_clearance:.2f} m, "
-                    f"heading error {heading_error_deg:.1f} deg."
+                    blocked_msg
                 )
             target_dist = safe_dist
         else:
@@ -246,6 +307,7 @@ class LlmAgentNode(Node):
         goal_after = math.hypot(self._dest_x - cx, self._dest_y - cy)
         progress = goal_before - goal_after
         self._last_progress_m = progress
+        self._blocked_forward_streak = 0
         if progress < -0.05:
             self._regression_streak += 1
         elif progress > 0.05:
@@ -265,7 +327,10 @@ class LlmAgentNode(Node):
         if self._regression_streak > 0:
             details.append(f"regression streak {self._regression_streak}")
         suffix = f" ({'; '.join(details)})" if details else ""
-        return f"Moved {traveled:.2f} m. Now at ({cx:.2f}, {cy:.2f}).{suffix}"
+        return (
+            f"Moved {traveled:.2f} m. Now at ({cx:.2f}, {cy:.2f}). "
+            f"Goal distance: {goal_after:.2f} m.{suffix}"
+        )
 
     def rotate(self, angle_deg: float, speed: float | None = None) -> str:
         """Rotate in place by *angle_deg* degrees."""
@@ -361,7 +426,7 @@ class LlmAgentNode(Node):
 
     def _recommended_step(
         self,
-        forward_clearance: float,
+        forward_free_space: float,
         heading_error_deg: float,
         distance_to_goal: float,
         regression_streak: int,
@@ -369,20 +434,20 @@ class LlmAgentNode(Node):
         if heading_error_deg > 35.0:
             return 0.0
 
-        # how much free space should i leave as a buffer
-        usable_clearance = max(0.0, forward_clearance - 0.10)
-        if usable_clearance <= 0.05:
+        # Reserve a small safety margin instead of using all visible free space ahead.
+        safe_forward_room = max(0.0, forward_free_space - 0.10)
+        if safe_forward_room <= 0.05:
             return 0.0
 
-        # small usable distance
-        if usable_clearance < 0.15:
+        # If the remaining safe room is tiny, only allow a tiny step.
+        if safe_forward_room < 0.15:
             step_m = 0.08
         elif distance_to_goal <= 0.75:
-            step_m = min(distance_to_goal, usable_clearance, 0.20)
+            step_m = min(distance_to_goal, safe_forward_room, 0.20)
         elif distance_to_goal <= 2.0:
-            step_m = min(distance_to_goal, usable_clearance, 0.35)
+            step_m = min(distance_to_goal, safe_forward_room, 0.35)
         else:
-            step_m = min(usable_clearance, 0.50)
+            step_m = min(safe_forward_room, 0.50)
 
         if regression_streak >= 2:
             step_m = min(step_m, 0.15)
@@ -522,6 +587,10 @@ class LlmAgentNode(Node):
                 self._publish_status(f"Agent error on step {step}: {exc}")
                 self.get_logger().error(f"Agent step {step} failed: {exc}")
                 break
+
+            if self._navigation_abort_reason is not None:
+                self._publish_status(self._navigation_abort_reason)
+                return
 
             x, y, _ = self.get_pose()
             dist = math.hypot(self._dest_x - x, self._dest_y - y)
