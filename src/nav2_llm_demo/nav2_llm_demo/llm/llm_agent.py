@@ -377,7 +377,7 @@ class VisionNavigationAgent:
         """Check if the last tool response indicated goal reached."""
         for msg in reversed(self._messages[-5:]):
             content = getattr(msg, "content", "")
-            if isinstance(content, str) and "REACHED -" in content:
+            if isinstance(content, str) and content.startswith("REACHED -"):
                 return True
         return False
 
