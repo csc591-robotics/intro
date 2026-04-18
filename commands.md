@@ -126,3 +126,10 @@ Ensure `echo $DISPLAY` is set on the host when you start Compose (e.g. `:0` or `
 ### macOS + Docker Desktop
 
 `xhost` on the Mac does not apply the same way. You typically need **XQuartz**, configure it to accept network connections, and point the container at your host's display (Docker Desktop networking differs from Linux `network_mode: host`). Follow a ROS-on-Docker + XQuartz guide if you run the GUI from a container on Mac.
+
+
+
+  rm -rf build/nav2_llm_demo install/nav2_llm_demo log
+  source /opt/ros/humble/setup.bash
+  colcon build --packages-select nav2_llm_demo
+  source install/setup.bash

@@ -94,11 +94,6 @@ class LlmAgentNode(Node):
         self._move_timeout = self._float("move_timeout_sec")
         self._base_frame = self._str("base_frame")
         self._map_resolution, self._map_origin_x, self._map_origin_y, self._map_grid = self._load_map()
-        self._map_width_m = self._map_grid.shape[1] * self._map_resolution
-        self._map_height_m = self._map_grid.shape[0] * self._map_resolution
-        self._llm_distance_zone_m = 0.10 * max(self._map_width_m, self._map_height_m)
-        self._robot_radius_m = 0.18
-        self._safety_margin_m = 0.08
         self._max_clearance_probe_m = 1.2
         self._last_progress_m: float | None = None
         self._regression_streak = 0
@@ -184,10 +179,10 @@ class LlmAgentNode(Node):
             forward_clearance,
             abs(heading_error),
             distance_to_goal,
+            self._regression_streak,
         )
         return {
             "distance_to_goal_m": round(distance_to_goal, 3),
-            "llm_distance_zone_m": round(self._llm_distance_zone_m, 3),
             "heading_error_deg": round(heading_error, 1),
             "forward_clearance_m": round(forward_clearance, 3),
             "left_clearance_m": round(left_clearance, 3),
@@ -196,7 +191,6 @@ class LlmAgentNode(Node):
             "last_progress_m": None if self._last_progress_m is None else round(self._last_progress_m, 3),
             "regression_streak": self._regression_streak,
             "in_known_free_space": self._is_known_free(x, y),
-            "llm_distance_control_active": distance_to_goal <= self._llm_distance_zone_m,
         }
 
     def move_forward(self, distance_m: float, speed: float | None = None) -> str:
@@ -214,32 +208,18 @@ class LlmAgentNode(Node):
         target_dist = requested_dist
         direction = 1.0 if distance_m >= 0 else -1.0
         if direction > 0:
-            if goal_before > self._llm_distance_zone_m and heading_error_deg > 90.0:
-                return (
-                    f"Grounding blocked forward move: heading error {heading_error_deg:.1f} deg is too large "
-                    f"outside llm-distance zone."
-                )
-            if self._regression_streak >= 2:
-                return (
-                    f"Grounding blocked forward move: regression streak {self._regression_streak} requires "
-                    f"reorientation before advancing."
-                )
             safe_dist = self._recommended_step(
                 forward_clearance,
                 heading_error_deg,
                 goal_before,
+                self._regression_streak,
             )
             if safe_dist <= 0.05:
                 return (
-                    f"Grounding blocked forward move: clearance {forward_clearance:.2f} m, "
+                    f"Heuristic blocked forward move: clearance {forward_clearance:.2f} m, "
                     f"heading error {heading_error_deg:.1f} deg."
                 )
-            if goal_before <= self._llm_distance_zone_m:
-                # In the close-goal zone, the LLM proposes the step size and grounding clamps it.
-                target_dist = min(requested_dist, safe_dist)
-            else:
-                # Outside the close-goal zone, use the grounded heuristic directly.
-                target_dist = safe_dist
+            target_dist = safe_dist
         else:
             target_dist = min(requested_dist, 0.4)
 
@@ -271,14 +251,17 @@ class LlmAgentNode(Node):
         elif progress > 0.05:
             self._regression_streak = 0
         details = []
-        if goal_before <= self._llm_distance_zone_m and target_dist + 1e-6 < requested_dist:
-            details.append(f"grounded clamp from {requested_dist:.2f} m to {target_dist:.2f} m")
-        elif goal_before > self._llm_distance_zone_m:
-            details.append(f"grounded step {target_dist:.2f} m outside llm-distance zone")
+        # Report the controller-selected step size for this move.
+        details.append(f"step {target_dist:.2f} m")
+        # If a reverse request was too large, report the capped distance we actually allowed.
+        if direction < 0 and target_dist + 1e-6 < requested_dist:
+            details.append(f"Rejected distance: {requested_dist:.2f} m to {target_dist:.2f} m")
+        # report moved away from the goal, or made progress toward the goal, if it's meaningful compared to odometry noise.
         if progress < -0.05:
             details.append(f"warning: goal distance increased by {abs(progress):.2f} m")
-        elif progress > 0.05:
+        else:
             details.append(f"progress {progress:.2f} m")
+        # If recent moves have made things worse, include the current regression streak.
         if self._regression_streak > 0:
             details.append(f"regression streak {self._regression_streak}")
         suffix = f" ({'; '.join(details)})" if details else ""
@@ -381,21 +364,30 @@ class LlmAgentNode(Node):
         forward_clearance: float,
         heading_error_deg: float,
         distance_to_goal: float,
+        regression_streak: int,
     ) -> float:
-        usable_clearance = max(0.0, forward_clearance - self._robot_radius_m - self._safety_margin_m)
+        if heading_error_deg > 35.0:
+            return 0.0
+
+        # how much free space should i leave as a buffer
+        usable_clearance = max(0.0, forward_clearance - 0.10)
         if usable_clearance <= 0.05:
             return 0.0
-        if distance_to_goal < 0.75:
-            return min(0.2, usable_clearance)
-        if distance_to_goal < 2.0:
-            return min(distance_to_goal, 0.35, usable_clearance)
-        if heading_error_deg > 90.0:
-            return min(0.2, usable_clearance)
-        if heading_error_deg > 45.0:
-            return min(0.35, usable_clearance)
-        if heading_error_deg > 20.0:
-            return min(0.5, usable_clearance)
-        return min(0.7, usable_clearance)
+
+        # small usable distance
+        if usable_clearance < 0.15:
+            step_m = 0.08
+        elif distance_to_goal <= 0.75:
+            step_m = min(distance_to_goal, usable_clearance, 0.20)
+        elif distance_to_goal <= 2.0:
+            step_m = min(distance_to_goal, usable_clearance, 0.35)
+        else:
+            step_m = min(usable_clearance, 0.50)
+
+        if regression_streak >= 2:
+            step_m = min(step_m, 0.15)
+
+        return step_m
 
     def _lookup_map_pose_via_tf(self, base_frame: str) -> tuple[float, float, float] | None:
         try:

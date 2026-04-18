@@ -88,8 +88,9 @@ TOOL_SCHEMAS = [
             "description": (
                 "Move the robot forward by the given number of meters. "
                 "Use positive values to go forward, negative to go backward. "
-                "Typical step size is 0.2 to 0.6 meters. Long moves may be "
-                "clamped by the grounded safety layer."
+                "For positive moves, the grounded controller chooses the exact "
+                "safe step size, so treat the number as an intent to advance "
+                "rather than an exact geometric command."
             ),
             "parameters": {
                 "type": "object",
@@ -184,7 +185,8 @@ before moving forward and after any move that does not improve progress.
 you. Red arrow = robot position and heading. Green circle = destination. \
 Blue circle = start. Call this FIRST and after every few moves.
 - move_forward(distance_meters): Drive forward (positive) or backward \
-(negative). Use small steps (0.3-1.0 m).
+(negative). For forward motion, use this as an intent to advance; the \
+controller will choose the exact step size heuristically.
 - rotate(angle_degrees): Turn in place. Positive = left/CCW, negative = \
 right/CW.
 - get_robot_pose(): Get exact coordinates and heading as JSON.
@@ -196,7 +198,8 @@ Strategy:
 clearance and heading error.
 3. Determine the direction to the destination relative to your heading.
 4. Rotate to face the destination.
-5. Move forward in small steps, checking the map and grounded context often.
+5. Move forward when the heading is acceptable, checking the map and grounded
+context often.
 6. If a move increases distance to goal or recommended_step_m is small,
 reassess instead of repeating the same action.
 7. When close, call check_goal_reached() to verify arrival.
@@ -206,7 +209,7 @@ Important:
 - The map image uses standard orientation: +X = RIGHT, +Y = UP.
 - Your heading (yaw) is measured counter-clockwise from +X axis.
 - Dark pixels = walls. White = free space. Gray = unknown.
-- Do not keep making long forward moves when heading_error_deg is large.
+- Do not attempt forward motion when heading_error_deg is large.
 - Respect recommended_step_m from get_navigation_context().
 - Take small steps and check the map often to stay safe.
 """
