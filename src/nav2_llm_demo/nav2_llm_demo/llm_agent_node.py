@@ -94,6 +94,9 @@ class LlmAgentNode(Node):
         self._move_timeout = self._float("move_timeout_sec")
         self._base_frame = self._str("base_frame")
         self._map_resolution, self._map_origin_x, self._map_origin_y, self._map_grid = self._load_map()
+        self._map_width_m = self._map_grid.shape[1] * self._map_resolution
+        self._map_height_m = self._map_grid.shape[0] * self._map_resolution
+        self._llm_distance_zone_m = 0.10 * max(self._map_width_m, self._map_height_m)
         self._robot_radius_m = 0.18
         self._safety_margin_m = 0.08
         self._max_clearance_probe_m = 1.2
@@ -176,9 +179,14 @@ class LlmAgentNode(Node):
         forward_clearance = self._clearance_in_direction(x, y, yaw)
         left_clearance = self._clearance_in_direction(x, y, yaw + math.pi / 2.0)
         right_clearance = self._clearance_in_direction(x, y, yaw - math.pi / 2.0)
-        recommended_step = self._recommended_step(forward_clearance, abs(heading_error))
+        recommended_step = self._recommended_step(
+            forward_clearance,
+            abs(heading_error),
+            distance_to_goal,
+        )
         return {
             "distance_to_goal_m": round(distance_to_goal, 3),
+            "llm_distance_zone_m": round(self._llm_distance_zone_m, 3),
             "heading_error_deg": round(heading_error, 1),
             "forward_clearance_m": round(forward_clearance, 3),
             "left_clearance_m": round(left_clearance, 3),
@@ -186,6 +194,7 @@ class LlmAgentNode(Node):
             "recommended_step_m": round(recommended_step, 3),
             "last_progress_m": None if self._last_progress_m is None else round(self._last_progress_m, 3),
             "in_known_free_space": self._is_known_free(x, y),
+            "llm_distance_control_active": distance_to_goal <= self._llm_distance_zone_m,
         }
 
     def move_forward(self, distance_m: float, speed: float | None = None) -> str:
@@ -203,13 +212,22 @@ class LlmAgentNode(Node):
         target_dist = requested_dist
         direction = 1.0 if distance_m >= 0 else -1.0
         if direction > 0:
-            safe_dist = self._recommended_step(forward_clearance, heading_error_deg)
+            safe_dist = self._recommended_step(
+                forward_clearance,
+                heading_error_deg,
+                goal_before,
+            )
             if safe_dist <= 0.05:
                 return (
                     f"Grounding blocked forward move: clearance {forward_clearance:.2f} m, "
                     f"heading error {heading_error_deg:.1f} deg."
                 )
-            target_dist = min(requested_dist, safe_dist)
+            if goal_before <= self._llm_distance_zone_m:
+                # In the close-goal zone, the LLM proposes the step size and grounding clamps it.
+                target_dist = min(requested_dist, safe_dist)
+            else:
+                # Outside the close-goal zone, use the grounded heuristic directly.
+                target_dist = safe_dist
         else:
             target_dist = min(requested_dist, 0.4)
 
@@ -237,8 +255,10 @@ class LlmAgentNode(Node):
         progress = goal_before - goal_after
         self._last_progress_m = progress
         details = []
-        if target_dist + 1e-6 < requested_dist:
+        if goal_before <= self._llm_distance_zone_m and target_dist + 1e-6 < requested_dist:
             details.append(f"grounded clamp from {requested_dist:.2f} m to {target_dist:.2f} m")
+        elif goal_before > self._llm_distance_zone_m:
+            details.append(f"grounded step {target_dist:.2f} m outside llm-distance zone")
         if progress < -0.05:
             details.append(f"warning: goal distance increased by {abs(progress):.2f} m")
         elif progress > 0.05:
@@ -338,10 +358,19 @@ class LlmAgentNode(Node):
             distance += step
         return max(0.0, distance - step)
 
-    def _recommended_step(self, forward_clearance: float, heading_error_deg: float) -> float:
+    def _recommended_step(
+        self,
+        forward_clearance: float,
+        heading_error_deg: float,
+        distance_to_goal: float,
+    ) -> float:
         usable_clearance = max(0.0, forward_clearance - self._robot_radius_m - self._safety_margin_m)
         if usable_clearance <= 0.05:
             return 0.0
+        if distance_to_goal < 0.75:
+            return min(0.2, usable_clearance)
+        if distance_to_goal < 2.0:
+            return min(distance_to_goal, 0.35, usable_clearance)
         if heading_error_deg > 90.0:
             return min(0.2, usable_clearance)
         if heading_error_deg > 45.0:
