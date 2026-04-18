@@ -11,13 +11,17 @@ The node:
 import math
 import threading
 import time
+from pathlib import Path
 
 from geometry_msgs.msg import TransformStamped, Twist
 from nav_msgs.msg import Odometry
+import numpy as np
+from PIL import Image
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 import tf2_ros
+import yaml
 
 from .llm.llm_agent import build_agent, set_controller
 
@@ -89,6 +93,11 @@ class LlmAgentNode(Node):
         self._angular_speed = self._float("angular_speed")
         self._move_timeout = self._float("move_timeout_sec")
         self._base_frame = self._str("base_frame")
+        self._map_resolution, self._map_origin_x, self._map_origin_y, self._map_grid = self._load_map()
+        self._robot_radius_m = 0.18
+        self._safety_margin_m = 0.08
+        self._max_clearance_probe_m = 1.2
+        self._last_progress_m: float | None = None
 
         self._pose_lock = threading.Lock()
         self._odom_x = 0.0
@@ -157,15 +166,52 @@ class LlmAgentNode(Node):
                 (self._odom_x, self._odom_y, self._odom_yaw),
             )
 
+    def get_navigation_context(self) -> dict[str, float | bool | str | None]:
+        x, y, yaw = self.get_pose()
+        distance_to_goal = math.hypot(self._dest_x - x, self._dest_y - y)
+        goal_heading = math.atan2(self._dest_y - y, self._dest_x - x)
+        heading_error = math.degrees(
+            math.atan2(math.sin(goal_heading - yaw), math.cos(goal_heading - yaw))
+        )
+        forward_clearance = self._clearance_in_direction(x, y, yaw)
+        left_clearance = self._clearance_in_direction(x, y, yaw + math.pi / 2.0)
+        right_clearance = self._clearance_in_direction(x, y, yaw - math.pi / 2.0)
+        recommended_step = self._recommended_step(forward_clearance, abs(heading_error))
+        return {
+            "distance_to_goal_m": round(distance_to_goal, 3),
+            "heading_error_deg": round(heading_error, 1),
+            "forward_clearance_m": round(forward_clearance, 3),
+            "left_clearance_m": round(left_clearance, 3),
+            "right_clearance_m": round(right_clearance, 3),
+            "recommended_step_m": round(recommended_step, 3),
+            "last_progress_m": None if self._last_progress_m is None else round(self._last_progress_m, 3),
+            "in_known_free_space": self._is_known_free(x, y),
+        }
+
     def move_forward(self, distance_m: float, speed: float | None = None) -> str:
         """Drive forward/backward by *distance_m* meters using cmd_vel."""
         if speed is None:
             speed = self._linear_speed
         speed = min(abs(speed), 0.26)
 
-        x0, y0, _ = self.get_pose()
-        target_dist = abs(distance_m)
+        x0, y0, yaw0 = self.get_pose()
+        goal_before = math.hypot(self._dest_x - x0, self._dest_y - y0)
+        forward_clearance = self._clearance_in_direction(x0, y0, yaw0 if distance_m >= 0 else yaw0 + math.pi)
+        heading_to_goal = math.atan2(self._dest_y - y0, self._dest_x - x0)
+        heading_error_deg = abs(math.degrees(math.atan2(math.sin(heading_to_goal - yaw0), math.cos(heading_to_goal - yaw0))))
+        requested_dist = abs(distance_m)
+        target_dist = requested_dist
         direction = 1.0 if distance_m >= 0 else -1.0
+        if direction > 0:
+            safe_dist = self._recommended_step(forward_clearance, heading_error_deg)
+            if safe_dist <= 0.05:
+                return (
+                    f"Grounding blocked forward move: clearance {forward_clearance:.2f} m, "
+                    f"heading error {heading_error_deg:.1f} deg."
+                )
+            target_dist = min(requested_dist, safe_dist)
+        else:
+            target_dist = min(requested_dist, 0.4)
 
         twist = Twist()
         twist.linear.x = direction * speed
@@ -187,7 +233,18 @@ class LlmAgentNode(Node):
 
         self._stop()
         cx, cy, _ = self.get_pose()
-        return f"Moved {traveled:.2f} m. Now at ({cx:.2f}, {cy:.2f})."
+        goal_after = math.hypot(self._dest_x - cx, self._dest_y - cy)
+        progress = goal_before - goal_after
+        self._last_progress_m = progress
+        details = []
+        if target_dist + 1e-6 < requested_dist:
+            details.append(f"grounded clamp from {requested_dist:.2f} m to {target_dist:.2f} m")
+        if progress < -0.05:
+            details.append(f"warning: goal distance increased by {abs(progress):.2f} m")
+        elif progress > 0.05:
+            details.append(f"progress {progress:.2f} m")
+        suffix = f" ({'; '.join(details)})" if details else ""
+        return f"Moved {traveled:.2f} m. Now at ({cx:.2f}, {cy:.2f}).{suffix}"
 
     def rotate(self, angle_deg: float, speed: float | None = None) -> str:
         """Rotate in place by *angle_deg* degrees."""
@@ -239,6 +296,59 @@ class LlmAgentNode(Node):
 
     def _stop(self) -> None:
         self._cmd_pub.publish(Twist())
+
+    def _load_map(self) -> tuple[float, float, float, np.ndarray]:
+        map_yaml = Path(self._map_yaml)
+        with map_yaml.open() as f:
+            meta = yaml.safe_load(f)
+
+        resolution = float(meta["resolution"])
+        origin = meta.get("origin", [0.0, 0.0, 0.0])
+        origin_x = float(origin[0])
+        origin_y = float(origin[1])
+        grid = np.array(Image.open(map_yaml.parent / meta["image"]).convert("L"))
+        if int(meta.get("negate", 0)):
+            grid = 255 - grid
+        return resolution, origin_x, origin_y, grid
+
+    def _world_to_grid(self, wx: float, wy: float) -> tuple[int, int]:
+        gx = int((wx - self._map_origin_x) / self._map_resolution)
+        gy = self._map_grid.shape[0] - 1 - int((wy - self._map_origin_y) / self._map_resolution)
+        return gx, gy
+
+    def _grid_value(self, wx: float, wy: float) -> int | None:
+        gx, gy = self._world_to_grid(wx, wy)
+        if gy < 0 or gy >= self._map_grid.shape[0] or gx < 0 or gx >= self._map_grid.shape[1]:
+            return None
+        return int(self._map_grid[gy, gx])
+
+    def _is_known_free(self, wx: float, wy: float) -> bool:
+        value = self._grid_value(wx, wy)
+        return value is not None and value >= 200
+
+    def _clearance_in_direction(self, wx: float, wy: float, yaw: float) -> float:
+        step = max(self._map_resolution, 0.05)
+        distance = 0.0
+        while distance <= self._max_clearance_probe_m:
+            sample_x = wx + distance * math.cos(yaw)
+            sample_y = wy + distance * math.sin(yaw)
+            value = self._grid_value(sample_x, sample_y)
+            if value is None or value < 200:
+                break
+            distance += step
+        return max(0.0, distance - step)
+
+    def _recommended_step(self, forward_clearance: float, heading_error_deg: float) -> float:
+        usable_clearance = max(0.0, forward_clearance - self._robot_radius_m - self._safety_margin_m)
+        if usable_clearance <= 0.05:
+            return 0.0
+        if heading_error_deg > 90.0:
+            return min(0.2, usable_clearance)
+        if heading_error_deg > 45.0:
+            return min(0.35, usable_clearance)
+        if heading_error_deg > 20.0:
+            return min(0.5, usable_clearance)
+        return min(0.7, usable_clearance)
 
     def _lookup_map_pose_via_tf(self, base_frame: str) -> tuple[float, float, float] | None:
         try:

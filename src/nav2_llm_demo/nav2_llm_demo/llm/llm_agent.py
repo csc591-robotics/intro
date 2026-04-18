@@ -43,6 +43,9 @@ class RobotController(Protocol):
     def rotate(self, angle_deg: float, speed: float = 0.5) -> str:
         ...
 
+    def get_navigation_context(self) -> dict[str, Any]:
+        ...
+
     @property
     def map_yaml_path(self) -> str: ...
     @property
@@ -85,7 +88,8 @@ TOOL_SCHEMAS = [
             "description": (
                 "Move the robot forward by the given number of meters. "
                 "Use positive values to go forward, negative to go backward. "
-                "Typical step size is 0.3 to 1.0 meters."
+                "Typical step size is 0.2 to 0.6 meters. Long moves may be "
+                "clamped by the grounded safety layer."
             ),
             "parameters": {
                 "type": "object",
@@ -118,6 +122,18 @@ TOOL_SCHEMAS = [
                 },
                 "required": ["angle_degrees"],
             },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_navigation_context",
+            "description": (
+                "Get grounded navigation context from the map and current pose: "
+                "distance to goal, heading error, local obstacle clearance, "
+                "and recommended safe forward step."
+            ),
+            "parameters": {"type": "object", "properties": {}},
         },
     },
     {
@@ -162,6 +178,8 @@ Your task: move the robot from its current position to the **destination** \
 (marked with a green circle on the map).
 
 Available tools:
+- get_navigation_context(): Get grounded spatial signals from the map. Use this
+before moving forward and after any move that does not improve progress.
 - get_map_view(): See an annotated top-down map. The image will be shown to \
 you. Red arrow = robot position and heading. Green circle = destination. \
 Blue circle = start. Call this FIRST and after every few moves.
@@ -174,17 +192,22 @@ right/CW.
 
 Strategy:
 1. Call get_map_view() to see the map and your position.
-2. Determine the direction to the destination relative to your heading.
-3. Rotate to face the destination.
-4. Move forward in small steps, checking the map periodically.
-5. Avoid dark areas (walls/obstacles). Stay on white areas (free space).
-6. When close, call check_goal_reached() to verify arrival.
-7. Prefer corridors and open paths. If blocked, back up and try another angle.
+2. Call get_navigation_context() to ground your next action in obstacle
+clearance and heading error.
+3. Determine the direction to the destination relative to your heading.
+4. Rotate to face the destination.
+5. Move forward in small steps, checking the map and grounded context often.
+6. If a move increases distance to goal or recommended_step_m is small,
+reassess instead of repeating the same action.
+7. When close, call check_goal_reached() to verify arrival.
+8. Prefer corridors and open paths. If blocked, back up and try another angle.
 
 Important:
 - The map image uses standard orientation: +X = RIGHT, +Y = UP.
 - Your heading (yaw) is measured counter-clockwise from +X axis.
 - Dark pixels = walls. White = free space. Gray = unknown.
+- Do not keep making long forward moves when heading_error_deg is large.
+- Respect recommended_step_m from get_navigation_context().
 - Take small steps and check the map often to stay safe.
 """
 
@@ -320,7 +343,8 @@ class VisionNavigationAgent:
                         },
                     ])
                 )
-
+        
+        # expects all tool calls + messages to be in same turn
         self._messages.extend(current_messages)
         self._save_step_image(",\n".join(summaries))
 
@@ -343,6 +367,9 @@ class VisionNavigationAgent:
     def _execute_tool(self, name: str, args: dict[str, Any]) -> tuple[str, str | None]:
         """Run a tool and return (text_result, base64_image_or_None)."""
         ctrl = _ctrl()
+
+        if name == "get_navigation_context":
+            return json.dumps(ctrl.get_navigation_context()), None
 
         if name == "move_forward":
             result = ctrl.move_forward(args.get("distance_meters", 0.0))
