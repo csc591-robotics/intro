@@ -94,7 +94,7 @@ if [[ -z "$WORLD_FILE" ]]; then
 fi
 
 RESOLUTION="${RESOLUTION:-0.05}"
-PADDING="${PADDING:-1.0}"
+PADDING="${PADDING:-2.0}"
 Z_MIN="${Z_MIN:-0.0}"
 Z_MAX="${Z_MAX:-0.4}"
 X_POSE="${X_POSE:-0.0}"
@@ -106,7 +106,7 @@ LAUNCH_RVIZ="${LAUNCH_RVIZ:-true}"
 FORCE="${FORCE:-0}"
 FLOOR_CLEARANCE="${FLOOR_CLEARANCE:-0.05}"
 EXTRA_GAZEBO_MODEL_PATH="${EXTRA_GAZEBO_MODEL_PATH:-}"
-SCHEMA_REQUIRED=2
+SCHEMA_REQUIRED=3
 
 MODEL_PATHS=""
 if [[ -d "$MODEL_DIR_COLLECTION" ]]; then
@@ -181,6 +181,7 @@ if [[ "$NEED_REGEN" == "1" ]]; then
     --z-max "$Z_MAX" \
     --floor-clearance "$FLOOR_CLEARANCE" \
     --origin-mode "$ORIGIN_MODE" \
+    --include-point "$X_POSE" "$Y_POSE" \
     --model-paths "${GAZEBO_MODEL_PATH:-}"
 else
   echo "Reusing existing map files (set FORCE=1 to regenerate):"

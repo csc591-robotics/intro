@@ -95,7 +95,7 @@ or fit-to-image step.
 Excerpt:
 
 ```yaml
-schema_version: 2
+schema_version: 3
 generated_by: world_to_map.rasterize_world
 source_world: /workspace/intro/world_files/gazebo_models_worlds_collection/worlds/workshop_example.world
 map_yaml: workshop_example.yaml
@@ -156,9 +156,16 @@ ros2 run world_to_map rasterize_world \
   --padding 1.0 \
   --z-min 0.0 --z-max 0.4 \
   --floor-clearance 0.05 \
+  --include-point 0.0 0.0 \
   --origin-mode bottom-left \
   --model-paths /workspace/intro/world_files/gazebo_models_worlds_collection/models
 ```
+
+`--include-point X Y` (repeatable) forces a world-frame point into the
+rasterized AABB. The runner always passes the robot's spawn pose so the
+robot is guaranteed to be **inside** the map even in worlds whose
+obstacles are clustered far from the origin (e.g., the warehouse pallets
+sit at y≈3.4 while the robot spawns at (0, 0)).
 
 `--floor-clearance` is what saves the workshop / warehouse worlds: many
 of the SDF models in the collection bake their "floor" in as a thin
@@ -174,7 +181,7 @@ set `0` to disable.
 | Variable                  | Default        | Meaning                                                     |
 |---------------------------|----------------|-------------------------------------------------------------|
 | `RESOLUTION`              | `0.05`         | Meters per pixel (the "scale")                              |
-| `PADDING`                 | `1.0`          | Empty border (m) around the world AABB                      |
+| `PADDING`                 | `2.0`          | Empty border (m) around the world AABB                      |
 | `Z_MIN`/`Z_MAX`           | `0.0`/`0.4`    | Robot height band used to filter obstacles                  |
 | `FLOOR_CLEARANCE`         | `0.05`         | Skip box/cyl collisions whose top is `<=` this height (m)   |
 | `X_POSE`/`Y_POSE`/`YAW`   | `0.0`          | TurtleBot3 spawn pose in **Gazebo world frame**             |
@@ -189,10 +196,15 @@ set `0` to disable.
   fully rasterized (yaw rotation supported; roll/pitch ignored).
 - `<include>` of `model://...` URIs — resolved against
   `--model-paths` / `GAZEBO_MODEL_PATH`. Each model's `model.sdf` is
-  parsed and its links are walked recursively.
-- `<mesh>`, `<polyline>`, `<sphere>`, `<heightmap>` — skipped with a
-  warning (most collision geometry in the bundled collection is
-  boxes/cylinders, so this rarely matters; visuals are skipped as long
-  as a `<collision>` exists for the link).
-- The rasterizer prints how many includes resolved vs not, so you can
-  spot model-pack misses immediately.
+  parsed and its links are walked recursively (each `<include>` is its
+  own instance — sibling instances of the same model are not deduped).
+- `<mesh>` (`.dae`, `.stl`, `.obj`) — vertex bounding box is extracted
+  and stamped as a yaw-rotated box. For Collada files the
+  `<library_visual_scenes>` node hierarchy is walked so per-node
+  `<matrix>` / `<scale>` transforms and the document's `<unit meter=…>`
+  are applied. This is what makes the warehouse shelving racks and
+  big-box pallets show up in the RViz map.
+- `<polyline>`, `<sphere>`, `<heightmap>` — skipped (rare in practice).
+- The rasterizer prints how many includes resolved vs not, plus a
+  `meshes (as bbox)` count and any `unreadable_meshes`, so you can
+  spot model-pack misses or weird DAEs immediately.
