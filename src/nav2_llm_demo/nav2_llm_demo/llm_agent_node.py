@@ -101,6 +101,7 @@ class LlmAgentNode(Node):
         self._safety_margin_m = 0.08
         self._max_clearance_probe_m = 1.2
         self._last_progress_m: float | None = None
+        self._regression_streak = 0
 
         self._pose_lock = threading.Lock()
         self._odom_x = 0.0
@@ -193,6 +194,7 @@ class LlmAgentNode(Node):
             "right_clearance_m": round(right_clearance, 3),
             "recommended_step_m": round(recommended_step, 3),
             "last_progress_m": None if self._last_progress_m is None else round(self._last_progress_m, 3),
+            "regression_streak": self._regression_streak,
             "in_known_free_space": self._is_known_free(x, y),
             "llm_distance_control_active": distance_to_goal <= self._llm_distance_zone_m,
         }
@@ -212,6 +214,16 @@ class LlmAgentNode(Node):
         target_dist = requested_dist
         direction = 1.0 if distance_m >= 0 else -1.0
         if direction > 0:
+            if goal_before > self._llm_distance_zone_m and heading_error_deg > 90.0:
+                return (
+                    f"Grounding blocked forward move: heading error {heading_error_deg:.1f} deg is too large "
+                    f"outside llm-distance zone."
+                )
+            if self._regression_streak >= 2:
+                return (
+                    f"Grounding blocked forward move: regression streak {self._regression_streak} requires "
+                    f"reorientation before advancing."
+                )
             safe_dist = self._recommended_step(
                 forward_clearance,
                 heading_error_deg,
@@ -254,6 +266,10 @@ class LlmAgentNode(Node):
         goal_after = math.hypot(self._dest_x - cx, self._dest_y - cy)
         progress = goal_before - goal_after
         self._last_progress_m = progress
+        if progress < -0.05:
+            self._regression_streak += 1
+        elif progress > 0.05:
+            self._regression_streak = 0
         details = []
         if goal_before <= self._llm_distance_zone_m and target_dist + 1e-6 < requested_dist:
             details.append(f"grounded clamp from {requested_dist:.2f} m to {target_dist:.2f} m")
@@ -263,6 +279,8 @@ class LlmAgentNode(Node):
             details.append(f"warning: goal distance increased by {abs(progress):.2f} m")
         elif progress > 0.05:
             details.append(f"progress {progress:.2f} m")
+        if self._regression_streak > 0:
+            details.append(f"regression streak {self._regression_streak}")
         suffix = f" ({'; '.join(details)})" if details else ""
         return f"Moved {traveled:.2f} m. Now at ({cx:.2f}, {cy:.2f}).{suffix}"
 
