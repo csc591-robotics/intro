@@ -285,11 +285,13 @@ class VisionNavigationAgent:
         response = self._llm_with_tools.invoke(self._messages)
         self._messages.append(response)
 
+        # tools expected by agent
         tool_calls = getattr(response, "tool_calls", None) or []
         if not tool_calls:
             return f"Agent message (no tool calls): {response.content}"
 
         summaries: list[str] = []
+        current_messages: list[HumanMessage] = []
 
         for tc in tool_calls:
             name = tc["name"]
@@ -299,12 +301,15 @@ class VisionNavigationAgent:
             text_result, img_b64 = self._execute_tool(name, args)
             summaries.append(f"{name}: {text_result}")
 
+            # ToolMessage records the textual result for a specific tool_call_id
             self._messages.append(
                 ToolMessage(content=text_result, tool_call_id=tc_id)
             )
 
+
             if img_b64 is not None:
-                self._messages.append(
+                # HumanMessage feeds rendered map to llm
+                current_messages.append(
                     HumanMessage(content=[
                         {"type": "text", "text": "Here is the current map view:"},
                         {
@@ -316,6 +321,7 @@ class VisionNavigationAgent:
                     ])
                 )
 
+        self._messages.extend(current_messages)
         self._save_step_image(",\n".join(summaries))
 
         return " | ".join(summaries)
