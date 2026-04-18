@@ -13,7 +13,11 @@ setup(
         ('share/' + package_name + '/launch', ['launch/llm_nav.launch.py']),
         (
             'share/' + package_name + '/config',
-            ['config/llm_nav_params.yaml', 'config/route_graph.json'],
+            ['config/llm_nav_params.yaml'],
+        ),
+        (
+            'share/' + package_name + '/scripts',
+            ['scripts/run_llm_nav.sh'],
         ),
     ],
     install_requires=['setuptools', 'langchain', 'langchain-core'],

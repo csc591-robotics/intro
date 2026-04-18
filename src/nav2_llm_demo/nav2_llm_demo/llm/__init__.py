@@ -2,7 +2,7 @@
 
 from .llm_routing import (
     build_decision_context,
-    load_route_graph,
+    load_route_graph_from_map_poses,
     make_decision,
     plan_route,
     validate_decision,
@@ -10,7 +10,7 @@ from .llm_routing import (
 
 __all__ = [
     'build_decision_context',
-    'load_route_graph',
+    'load_route_graph_from_map_poses',
     'make_decision',
     'plan_route',
     'validate_decision',

@@ -3,6 +3,7 @@
 import math
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from geometry_msgs.msg import PoseStamped
@@ -11,7 +12,33 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
-from .llm import load_route_graph, plan_route
+from .llm import load_route_graph_from_map_poses, plan_route
+
+
+def _load_world_to_map_offset(sidecar_path: str) -> tuple[float, float]:
+    """Read (offset_x, offset_y) from a .world_map.yaml sidecar.
+
+    Returns (0.0, 0.0) if the path is empty or the file cannot be read,
+    preserving backward compatibility with hand-crafted maps that have no
+    sidecar (for those, world frame == map frame so the offset is zero).
+    """
+    if not sidecar_path:
+        return 0.0, 0.0
+    p = Path(sidecar_path).expanduser()
+    if not p.is_file():
+        # Try resolving relative to the workspace root (next to install/)
+        ws = Path(__file__).resolve().parents[4]
+        p = ws / sidecar_path
+    if not p.is_file():
+        return 0.0, 0.0
+    try:
+        import yaml  # available in any ROS 2 Humble Python env
+        with p.open() as fh:
+            data = yaml.safe_load(fh)
+        off = data.get('world_to_map_offset', [0.0, 0.0])
+        return float(off[0]), float(off[1])
+    except Exception:  # noqa: BLE001
+        return 0.0, 0.0
 
 
 @dataclass
@@ -41,7 +68,8 @@ class LlmNavNode(Node):
         self.declare_parameter('stall_min_progress_m', 0.15)
         self.declare_parameter('max_replans', 10)
         self.declare_parameter('max_decision_attempts', 2)
-        self.declare_parameter('route_graph_path', '')
+        self.declare_parameter('map_poses_path', '')
+        self.declare_parameter('map_name', '')
         self.declare_parameter(
             'planner_notes',
             (
@@ -53,9 +81,44 @@ class LlmNavNode(Node):
             ),
         )
 
+        # ── Load route graph from map_poses.yaml ─────────────────────────────
+        map_poses_path = self._string_param('map_poses_path')
+        map_name = self._string_param('map_name')
+        if not map_poses_path or not map_name:
+            raise RuntimeError(
+                'map_poses_path and map_name parameters are required. '
+                'Pass them to llm_nav.launch.py:\n'
+                '  map_poses_path:=/workspace/intro/src/custom_map_builder/maps/map_poses.yaml\n'
+                '  map_name:=warehouse'
+            )
+
+        self.get_logger().info(
+            f'Loading route graph from map_poses.yaml: '
+            f'{map_poses_path}  map={map_name}'
+        )
+        self._graph, sidecar_path = load_route_graph_from_map_poses(
+            map_poses_path, map_name
+        )
+
+        # ── World→map offset (from sidecar embedded in map_poses.yaml) ───────
+        self._map_offset_x, self._map_offset_y = _load_world_to_map_offset(
+            sidecar_path
+        )
+        if sidecar_path:
+            self.get_logger().info(
+                f'sidecar={sidecar_path!r} → '
+                f'world→map offset=({self._map_offset_x:.4f}, '
+                f'{self._map_offset_y:.4f}). '
+                'Checkpoint coords are in Gazebo world frame and will be '
+                'shifted by this offset before being sent to Nav2.'
+            )
+        else:
+            self.get_logger().info(
+                'No sidecar in map_poses.yaml — checkpoint coords sent to '
+                'Nav2 unchanged (world frame == map frame).'
+            )
+
         # graph - navigation environment representation
-        self._graph = load_route_graph(self._string_param('route_graph_path'))
-        
         self._checkpoints = self._graph['checkpoints']
         self._edges = {
             (edge['from'], edge['to']) for edge in self._graph['edges']
@@ -95,8 +158,14 @@ class LlmNavNode(Node):
             f'Loaded route graph with {len(self._checkpoints)} checkpoints and '
             f'{len(self._edges)} directed edges'
         )
+        # We do NOT run AMCL — Gazebo's diff_drive plugin + our static
+        # map→odom TF are the localization. BasicNavigator defaults to
+        # waiting for the 'amcl' lifecycle node, which would hang here
+        # forever. Pointing the localizer wait at 'controller_server'
+        # makes BasicNavigator skip both the AMCL check and the
+        # /initialpose wait while still confirming bt_navigator is up.
         self._publish_status('Waiting for Nav2 to become active')
-        self._navigator.waitUntilNav2Active()
+        self._navigator.waitUntilNav2Active(localizer='controller_server')
         self._publish_status(
             'Nav2 active. Waiting for high-level mission requests'
         )
@@ -180,8 +249,10 @@ class LlmNavNode(Node):
         pose = PoseStamped()
         pose.header.frame_id = self._string_param('map_frame')
         pose.header.stamp = self.get_clock().now().to_msg()
-        pose.pose.position.x = float(checkpoint['x'])
-        pose.pose.position.y = float(checkpoint['y'])
+        # Checkpoint coords are stored in Gazebo world frame.
+        # Apply world→map offset so Nav2 receives map-frame coordinates.
+        pose.pose.position.x = float(checkpoint['x']) + self._map_offset_x
+        pose.pose.position.y = float(checkpoint['y']) + self._map_offset_y
         pose.pose.position.z = 0.0
 
         half_yaw = float(checkpoint['yaw']) / 2.0

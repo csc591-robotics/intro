@@ -1,15 +1,77 @@
-# Poses in the map frame (meters; quaternion x, y, z, w).
-# yaw_rad is informational (from RViz); use orientation for /initialpose-style messages.
-# Fill in source/destination for each PGM as you record them from RViz 2D Pose Estimate.
+# ============================================================================
+# map_poses.yaml  —  single source of truth for custom_map_builder AND
+#                    nav2_llm_demo.
+#
+# Both packages read this ONE file.  No manual copy-paste between files.
+#
+# ── How to fill in coordinates ───────────────────────────────────────────────
+#
+#   For world_to_map maps (warehouse, workshop_example, test_zone …):
+#
+#     1.  LAUNCH_GAZEBO=false bash src/custom_map_builder/scripts/run_map_builder.sh warehouse
+#     2.  In RViz press P (Publish Point) and click a location.
+#         Terminal prints:
+#             MAP  x=9.42  y=13.10  |  GAZEBO WORLD  x=0.73  y=1.34
+#     3.  Write the GAZEBO WORLD values here.
+#         nav2_llm_demo will apply the offset automatically.
+#
+#   For hand-crafted maps (diamond_blocked …):
+#     No sidecar.  World frame == map frame.  Write map-frame coords.
+#
+# ── How to get orientation / yaw ─────────────────────────────────────────────
+#
+#   In RViz use "2D Pose Estimate" (shortcut E), then:
+#       ros2 topic echo /initialpose --once
+#   Copy the quaternion (x, y, z, w) and yaw_rad here.
+#   Facing east (default):  z=0.0  w=1.0  yaw_rad=0.0
+#
+# ── What nav2_llm_demo reads ─────────────────────────────────────────────────
+#
+#   Pass  map_poses_path  +  map_name  to llm_nav.launch.py instead of the
+#   old  route_graph_path  +  map_sidecar_path.
+#
+#   The route_graph block inside each map entry is the authoritative graph.
+#   Checkpoint (x, y) values are in Gazebo world frame; the sidecar offset
+#   is applied automatically when sending goals to Nav2.
+#
+# ── Shared format spec ───────────────────────────────────────────────────────
+#
+#   frame: gazebo_world           # all (x,y) are in Gazebo world frame
+#   maps:
+#     <pgm-filename>:
+#       sidecar: <path>           # .world_map.yaml, or null for hand-crafted
+#       source:                   # robot initial pose
+#         position: {x, y, z}
+#         orientation: {x, y, z, w}
+#         yaw_rad: <float>
+#       destination:              # simple 2-point goal (informational)
+#         position: {x, y, z}
+#         orientation: {x, y, z, w}
+#         yaw_rad: <float>
+#       route_graph:              # full graph consumed by nav2_llm_demo
+#         start_checkpoint: <name>
+#         checkpoints:
+#           <name>: {x, y, yaw, description}
+#         edges:
+#           - {from: <name>, to: <name>}
+#         goal_aliases:
+#           <alias>: [<checkpoint>, ...]
+# ============================================================================
 
-frame_id: map
+frame: gazebo_world
 
 maps:
+
+  # ── Hand-crafted maps ──────────────────────────────────────────────────────
+
   default.pgm:
+    sidecar: null
     source: null
     destination: null
+    route_graph: null
 
   diamond_blocked.pgm:
+    sidecar: null
     source:
       position: {x: 13.1001, y: 11.3377, z: 0.0}
       orientation: {x: 0.0, y: 0.0, z: 0.991511, w: 0.130025}
@@ -18,11 +80,109 @@ maps:
       position: {x: 10.2383, y: 19.1664, z: 0.0}
       orientation: {x: 0.0, y: 0.0, z: 0.723957, w: 0.689845}
       yaw_rad: 1.61904
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: 13.1001
+          y: 11.3377
+          yaw: 2.88
+          description: Robot spawn — left side of the diamond map
+        goal:
+          x: 10.2383
+          y: 19.1664
+          yaw: 1.61904
+          description: Destination — upper area of the diamond map
+      edges:
+        - {from: start, to: goal}
+      goal_aliases:
+        goal: [goal]
+        destination: [goal]
+        end: [goal]
 
   diamond_path.pgm:
+    sidecar: null
     source: null
     destination: null
+    route_graph: null
 
   y_path.pgm:
+    sidecar: null
     source: null
     destination: null
+    route_graph: null
+
+  # ── world_to_map-generated maps ────────────────────────────────────────────
+  # Record coordinates with:
+  #   LAUNCH_GAZEBO=false bash src/custom_map_builder/scripts/run_map_builder.sh <name>
+  # Then press P in RViz, click, and write the GAZEBO WORLD values below.
+
+  warehouse.pgm:
+    sidecar: src/world_to_map/maps/warehouse.world_map.yaml
+    source:
+      position: {x: -4.7094, y: -3.8890, z: 0.0}   # GAZEBO WORLD (from Publish Point click)
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 0.0
+    destination:
+      position: {x: 2.8222, y: 1.9102, z: 0.0}     # GAZEBO WORLD (from Publish Point click)
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 0.0
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: -4.7094    # GAZEBO WORLD — must match source.position above
+          y: -3.8890
+          yaw: 0.0
+          description: Robot spawn point in the warehouse aisle
+        goal:
+          x: 2.8222     # GAZEBO WORLD — must match destination.position above
+          y: 1.9102
+          yaw: 0.0
+          description: Mission destination in the warehouse
+      edges:
+        - {from: start, to: goal}
+      goal_aliases:
+        goal: [goal]
+        destination: [goal]
+        end: [goal]
+
+  workshop_example.pgm:
+    sidecar: src/world_to_map/maps/workshop_example.world_map.yaml
+    source:
+      position: {x: 0.0, y: 0.0, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 0.0
+    destination: null
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: 0.0
+          y: 0.0
+          yaw: 0.0
+          description: Robot spawn point in the workshop
+      edges:
+        []
+      goal_aliases:
+        {}
+
+  test_zone.pgm:
+    sidecar: src/world_to_map/maps/test_zone.world_map.yaml
+    source:
+      position: {x: 0.0, y: 0.0, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 0.0
+    destination: null
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: 0.0
+          y: 0.0
+          yaw: 0.0
+          description: Robot spawn point in the test zone
+      edges:
+        []
+      goal_aliases:
+        {}

@@ -1,56 +1,129 @@
-# `llm_nav_node` Overview
+# `nav2_llm_demo` — LLM-driven Nav2 missions
 
-This package is a high-level navigation layer on top of Nav2.
+A high-level navigation layer on top of Nav2. The LLM decides **which
+checkpoint to head to next**; Nav2 does **all** the actual driving,
+costmap reasoning, obstacle avoidance, and recovery.
 
-It does not do localization, obstacle detection, or low-level path following by itself. Its job is:
+## What this package now does
 
-1. Read a simple route graph from `config/route_graph.json`.
-2. Send the current mission context to the LLM.
-3. Get back a checkpoint route such as `start -> north_staging -> north_pass -> goal_zone`.
-4. Convert each checkpoint into a `PoseStamped` goal in the `map` frame.
-5. Hand those goals to Nav2 one segment at a time.
+A single launch file (`llm_nav.launch.py`, wrapped by
+`scripts/run_llm_nav.sh`) brings up everything end-to-end so that
+**Gazebo and RViz both show the robot in the same place from frame
+zero**:
 
-## How the map works
+1. Reads the entry for the chosen `map_name` from the shared
+   `src/custom_map_builder/maps/map_poses.yaml` (the single source of
+   truth — same file `custom_map_builder` writes to).
+2. Reads the per-map `.world_map.yaml` *sidecar* it points to (produced
+   by `world_to_map.rasterize_world`) for the `.world` file path,
+   `world_to_map_offset`, and Nav2 `map.yaml`.
+3. Launches **Gazebo** with that `.world`.
+4. Spawns the **TurtleBot3** at the `source` pose recorded in
+   `map_poses.yaml` (Gazebo world frame).
+5. Publishes a static `map → odom` TF whose translation equals
+   `source + world_to_map_offset` so the robot's pose in the `map`
+   frame matches its position in Gazebo to the millimetre.
+6. Brings up `map_server` + the Nav2 **navigation** stack (planner,
+   controller, bt_navigator, behavior, smoother, waypoint_follower).
+   AMCL is intentionally **not** used: Gazebo's diff-drive plugin gives
+   us perfect odometry and our static TF gives us perfect localization,
+   so AMCL would only fight us.
+7. Opens **RViz** on the rasterized PGM with the camera focused on the
+   robot.
+8. Starts `llm_nav_node` parameterised with the same
+   `map_poses_path` + `map_name` so the LLM picks goals from the
+   `route_graph` block of that entry.
 
-There are two different "map" concepts in this system:
+For hand-crafted maps with no sidecar (`sidecar: null` in
+`map_poses.yaml`), step 3–5 are skipped and the launch falls back to
+plain `nav2_bringup` (full bringup with AMCL). You must pass
+`map_yaml_fallback:=…` so Nav2 has a map to load.
 
-- `route_graph.json`: a simple directed graph used by the LLM for high-level decisions.
-- Nav2 map / costmaps: the real navigation map and obstacle layers used by Nav2 to physically move the robot.
+## Quick start
 
-### 1. The route graph
+```bash
+cd /workspace/intro
+colcon build --packages-select nav2_llm_demo world_to_map
+source install/setup.bash
 
-The JSON graph defines:
+# Most common case — a world_to_map-generated map:
+bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse
 
-- `start_checkpoint`: where the robot starts in graph terms
-- `checkpoints`: named poses with `x`, `y`, `yaw`, and a text `description`
-- `edges`: allowed directed transitions between checkpoints
-- `goal_aliases`: user-friendly goal names that map to one or more final checkpoints
+# In a second terminal, send a mission:
+ros2 topic pub --once /navigation_request std_msgs/String \
+  "data: 'goal'"
+```
 
-Example:
+Available map names (taken from `map_poses.yaml`): `warehouse`,
+`workshop_example`, `test_zone`, `diamond_blocked` (hand-crafted, needs
+`MAP_YAML_FALLBACK`).
 
-- `start -> south_staging`
-- `south_staging -> south_pass`
-- `south_pass -> goal_zone`
+### Hand-crafted map (no Gazebo)
 
-This means the LLM is only allowed to choose among the listed nodes and edges. It cannot invent a new route or a new coordinate.
+```bash
+MAP_YAML_FALLBACK=src/custom_map_builder/maps/diamond_blocked.yaml \
+  bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
+```
 
-### 2. The real Nav2 map
+## How `map_poses.yaml` ties it all together
 
-Nav2 still needs its own normal navigation stack:
+The file `src/custom_map_builder/maps/map_poses.yaml` is shared with
+`custom_map_builder` and contains, per map:
 
-- `map_server`
-- `amcl` or another localization source
-- global and local costmaps
-- planner/controller servers
-- TF frames like `map`, `odom`, and `base_link`
+```yaml
+maps:
+  warehouse.pgm:
+    sidecar: src/world_to_map/maps/warehouse.world_map.yaml   # used to find .world + offset
+    source:                                                   # robot spawn pose (Gazebo world frame)
+      position: {x: 0.0, y: 0.0, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 0.0
+    destination: {...}                                        # (informational)
+    route_graph:                                              # consumed by llm_nav_node
+      start_checkpoint: start
+      checkpoints:
+        start: {x: 0.0,  y: 0.0,  yaw: 0.0, description: "..."}
+        shelf: {x: 1.5,  y: 3.4,  yaw: 0.0, description: "..."}
+      edges:
+        - {from: start, to: shelf}
+      goal_aliases:
+        shelf:   [shelf]
+        deliver: [shelf]
+```
 
-That is the map Nav2 uses to actually drive the robot around obstacles.
+All `(x, y)` are in the **Gazebo world frame**. The launch file applies
+the sidecar offset before sending goals to Nav2.
 
-## What data the LLM receives
+### Workflow for filling in coordinates
 
-The LLM does not receive live camera images, lidar scans, point clouds, or raw TF.
+1. Run `custom_map_builder` to *just click points* (no Gazebo, no LLM):
+   ```bash
+   LAUNCH_GAZEBO=false bash src/custom_map_builder/scripts/run_map_builder.sh warehouse
+   ```
+   In RViz press **P** (Publish Point) and click. Each click prints:
+   ```
+   frame="map"  MAP  x=9.42  y=13.10  |  GAZEBO WORLD  x=0.73  y=1.34
+   ```
+2. Copy the **GAZEBO WORLD** values into the matching `route_graph`
+   entry of `map_poses.yaml`.
+3. `nav2_llm_demo` will apply the sidecar offset automatically when
+   sending goals to Nav2.
 
-It receives structured graph-level context built in `llm_nav_node.py`, including:
+## End-to-end LLM mission flow
+
+1. A user publishes a text mission request on `/navigation_request`.
+2. `llm_nav_node` loads the current graph state from `map_poses.yaml`.
+3. The LLM chooses a legal route through allowed edges.
+4. The node validates that route.
+5. The node sends the next checkpoint pose to Nav2 (after applying the
+   `world → map` offset).
+6. Nav2 uses costmaps + sensors to drive there.
+7. If a segment fails, that edge is marked blocked and the node replans.
+
+## What the LLM sees vs what Nav2 sees
+
+The LLM does **not** receive camera images, lidar scans, point clouds,
+or raw TF. It receives a structured graph context:
 
 - the natural-language mission request
 - the robot's current checkpoint
@@ -60,84 +133,22 @@ It receives structured graph-level context built in `llm_nav_node.py`, including
 - blocked edges
 - the last failure reason
 
-In other words, the LLM sees a simplified symbolic routing problem, not raw sensor perception.
-
-## What data Nav2 receives
-
-Nav2 receives the actual pose goals and uses robot/navigation data to execute them.
-
-Nav2 typically depends on:
-
-- the static map
-- localization output
-- TF transforms
-- odometry
-- lidar or depth obstacles
-- costmap updates
-
 So the split is:
 
-- LLM: "Which checkpoint route should we try?"
-- Nav2: "How do I physically get to the next pose safely?"
+- **LLM**: "Which checkpoint route should we try?"
+- **Nav2**: "How do I physically get to the next pose safely?"
 
-## Are obstacles in `route_graph.json`?
+## Topics
 
-Not directly.
+- `/navigation_request` (`std_msgs/String`) — incoming mission text
+- `/navigation_status`  (`std_msgs/String`) — human-readable status
+- `/active_goal_pose`   (`geometry_msgs/PoseStamped`) — the current goal
+  Nav2 is chasing (already in `map` frame after offset is applied)
 
-The graph does not contain obstacle objects. Obstacles are handled by Nav2 using the real map and live sensors.
+## Files
 
-The graph can still reflect obstacle-aware design indirectly by only including safe corridor choices. For example, having `north_pass` and `south_pass` but no direct middle edge effectively tells the LLM to route around an obstacle region.
-
-## What are blocked edges?
-
-If Nav2 fails on a segment, the node stores that segment as a blocked edge for the current mission.
-
-Example:
-
-- Nav2 fails on `south_staging -> south_pass`
-- that edge is added to `blocked_edges`
-- the next LLM call is told not to use it again
-
-That lets the system replan around a failed branch without giving the LLM raw sensor data.
-
-## End-to-end flow
-
-1. A user sends a text mission request on `/navigation_request`.
-2. `llm_nav_node` loads the current graph state.
-3. The LLM chooses a legal route through allowed edges.
-4. The node validates that route.
-5. The node sends the next checkpoint pose to Nav2.
-6. Nav2 uses localization, costmaps, and sensors to drive there.
-7. If a segment fails, that edge is marked blocked and the node replans.
-
-## Important limitation
-
-This package depends on Nav2 already being properly started and localized.
-
-If `map`, `odom`, and `base_link` are not available, or AMCL has not been initialized, the LLM node cannot navigate because it only provides high-level decisions and goal poses. Nav2 is the part that actually moves the robot.
-
-## Step 2 tools and agent loop
-
-Step 2 adds:
-
-- a ROS-backed tool backend that reads pose, lidar, camera, and annotated-map state
-- a local stdio MCP server exposing the required robot tools
-- a LangGraph mission loop that senses state, decides the next move, navigates, confirms the result, and repeats
-
-The MCP server is intended to be started directly by the LLM client process over stdio rather than launched as a normal ROS node.
-
-Required tools:
-
-- `navigate_to_checkpoint`
-- `navigate_to_coordinates`
-- `report_blockade`
-- `get_robot_position`
-- `get_camera_snapshot`
-- `get_annotated_map`
-- `get_lidar_summary`
-
-Assumptions called out in the implementation:
-
-- Step 1 will eventually publish or save annotated-map artifacts
-- camera input may be absent in some worlds
-- named checkpoints remain backed by `route_graph.json` in v1
+- `launch/llm_nav.launch.py` — orchestrator
+- `scripts/run_llm_nav.sh` — convenience wrapper
+- `nav2_llm_demo/llm_nav_node.py` — the mission controller
+- `nav2_llm_demo/llm/llm_routing.py` — graph loader + LLM helpers
+- `config/llm_nav_params.yaml` — node parameters

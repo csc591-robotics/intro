@@ -9,24 +9,9 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 
 
-def load_route_graph(graph_path: str) -> dict[str, Any]:
-    """Load and validate the route graph JSON from disk."""
-    if not graph_path:
-        raise RuntimeError('route_graph_path parameter is required')
-
-    path = Path(graph_path)
-    if not path.is_file():
-        raise RuntimeError(f'Route graph file not found: {graph_path}')
-
-    with path.open('r', encoding='utf-8') as handle:
-        graph = json.load(handle)
-
-    required_keys = {
-        'start_checkpoint',
-        'checkpoints',
-        'edges',
-        'goal_aliases',
-    }
+def _validate_graph(graph: dict[str, Any]) -> None:
+    """Raise RuntimeError if the graph dict is missing required keys/values."""
+    required_keys = {'start_checkpoint', 'checkpoints', 'edges', 'goal_aliases'}
     missing = required_keys - set(graph.keys())
     if missing:
         raise RuntimeError(
@@ -56,11 +41,71 @@ def load_route_graph(graph_path: str) -> dict[str, Any]:
         for goal in goals:
             if goal not in checkpoints:
                 raise RuntimeError(
-                    f"Goal alias '{alias}' references unknown checkpoint "
-                    f"'{goal}'"
+                    f"Goal alias '{alias}' references unknown checkpoint '{goal}'"
                 )
 
-    return graph
+
+def load_route_graph_from_map_poses(
+    map_poses_path: str, map_name: str
+) -> tuple[dict[str, Any], str]:
+    """Load a route graph and sidecar path from a unified ``map_poses.yaml``.
+
+    Parameters
+    ----------
+    map_poses_path:
+        Absolute (or workspace-relative) path to ``map_poses.yaml``.
+    map_name:
+        The PGM filename key inside ``maps:``, e.g. ``"warehouse.pgm"``.
+        If the caller omits the ``.pgm`` suffix it is added automatically.
+
+    Returns
+    -------
+    (graph, sidecar_path)
+        ``graph`` is a validated route-graph dict ready for :func:`plan_route`.
+        ``sidecar_path`` is the string value of the ``sidecar`` field (may be
+        empty/null — callers treat it as ``""`` when absent).
+    """
+    import yaml  # available in every ROS 2 Humble Python env
+
+    if not map_name.endswith('.pgm'):
+        map_name = map_name + '.pgm'
+
+    p = Path(map_poses_path).expanduser()
+    if not p.is_file():
+        # Try resolving relative to the workspace root (next to install/).
+        ws = Path(__file__).resolve().parents[4]
+        p = ws / map_poses_path
+    if not p.is_file():
+        raise RuntimeError(f'map_poses file not found: {map_poses_path}')
+
+    with p.open() as fh:
+        data = yaml.safe_load(fh)
+
+    maps = data.get('maps') or {}
+    if map_name not in maps:
+        raise RuntimeError(
+            f"map_poses.yaml has no entry for '{map_name}'. "
+            f"Available maps: {sorted(maps.keys())}"
+        )
+
+    entry = maps[map_name] or {}
+    raw_graph = entry.get('route_graph')
+    if not raw_graph:
+        raise RuntimeError(
+            f"map_poses.yaml entry for '{map_name}' has no route_graph block. "
+            "Add checkpoints, edges, and goal_aliases under route_graph."
+        )
+
+    graph: dict[str, Any] = dict(raw_graph)
+    if not graph.get('edges'):
+        graph['edges'] = []
+    if not graph.get('goal_aliases'):
+        graph['goal_aliases'] = {}
+
+    _validate_graph(graph)
+
+    sidecar_path: str = entry.get('sidecar') or ''
+    return graph, sidecar_path
 
 
 def plan_route(
