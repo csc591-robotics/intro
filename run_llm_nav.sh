@@ -131,9 +131,12 @@ echo "  Dest     : ($DEST_X, $DEST_Y) yaw=$DEST_YAW"
 # Step 1: Gazebo (empty world + TurtleBot3 spawned at source pose)
 # ---------------------------------------------------------------------------
 
+export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:/workspace/gazebo_models_worlds_collection/models
+
 echo ""
 echo "Starting Gazebo (empty world) + TurtleBot3 at source pose..."
-ros2 launch turtlebot3_gazebo empty_world.launch.py \
+# launch hardcoded launchfile to warehouse world
+ros2 launch warehouse_world.launch.py \
   x_pose:="$SOURCE_X" \
   y_pose:="$SOURCE_Y" \
   &
