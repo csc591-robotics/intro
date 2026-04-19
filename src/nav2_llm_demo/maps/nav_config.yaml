@@ -1,0 +1,24 @@
+# Per-map navigation configuration for llm_agent_node.
+# Maps are imported from custom_map_builder/maps/ after testing.
+#
+# Each entry needs:
+#   map_yaml  - filename of the Nav2 map YAML (co-located in this directory)
+#   source    - robot starting pose (position + orientation quaternion)
+#   destination - navigation goal pose
+#
+# Orientation is a quaternion (x, y, z, w).
+# yaw_rad is informational only; the quaternion is authoritative.
+
+frame_id: map
+
+maps:
+  diamond_blocked:
+    map_yaml: diamond_blocked.yaml
+    source:
+      position: {x: 13.1001, y: 11.3377, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.991511, w: 0.130025}
+      yaw_rad: 2.88
+    destination:
+      position: {x: 10.2383, y: 19.1664, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.723957, w: 0.689845}
+      yaw_rad: 1.61904

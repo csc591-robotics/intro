@@ -1,139 +1,189 @@
 #!/usr/bin/env bash
-# ---------------------------------------------------------------------------
-# nav2_llm_demo runner — brings up Gazebo + RViz + Nav2 + the LLM controller
-# all aligned to the source pose recorded in map_poses.yaml so the robot
-# starts at the **same place in both Gazebo and RViz** from frame zero.
+# ──────────────────────────────────────────────────────────────────────────
+# run_llm_nav.sh — launch the vision-based LLM agent.
 #
-# Usage (inside the Docker container, after building):
+# Reads custom_map_builder/maps/map_poses.yaml, resolves the per-world sidecar
+# (when present), and brings up:
 #
-#   cd /workspace/intro
-#   source install/setup.bash
+#   - Gazebo (the .world file referenced by the sidecar) + TurtleBot3 spawn
+#   - nav2_map_server (PGM/YAML loaded into the map topic)
+#   - static map -> odom TF aligned with the chosen source pose
+#   - RViz with the map view
+#   - llm_agent_node (vision LLM controlling /cmd_vel)
 #
-#   # Most common case — a world_to_map-generated map:
+# For hand-crafted maps (sidecar==null) the script falls back to the legacy
+# behaviour: map_server + identity TF + agent.  Gazebo is NOT started in that
+# case (no .world is associated with the map).
+#
+# Usage:
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME>
+#
+# Examples:
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
 #
-#   # A specific PGM filename also works:
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse.pgm
-#
-#   # Hand-crafted map (no Gazebo) needs the Nav2 map yaml as a fallback:
-#   MAP_YAML_FALLBACK=src/custom_map_builder/maps/diamond_blocked.yaml \
-#     bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
-#
-# The runner reads the entry for <map_name> in
-#   src/custom_map_builder/maps/map_poses.yaml
-# and forwards everything to llm_nav.launch.py.  That launch file then:
-#   - launches Gazebo with the world file referenced in the sidecar,
-#   - spawns the TurtleBot3 at the recorded source pose,
-#   - publishes a static map -> odom TF aligned with the spawn,
-#   - opens RViz on the rasterized PGM,
-#   - starts Nav2 navigation servers (no AMCL — Gazebo is ground truth),
-#   - starts llm_nav_node parameterised with the same map_poses.yaml entry.
-#
-# Optional environment overrides:
-#   MAP_POSES_PATH      Path to map_poses.yaml (default: shared file).
-#   NAV2_PARAMS_FILE    Path to Nav2 params yaml.
-#   LLM_PARAMS_FILE     Path to llm_nav_params.yaml (default: package share).
-#   MAP_YAML_FALLBACK   Required for hand-crafted maps with sidecar: null.
-#   GAZEBO_MODEL_PATH   Extra model dirs (auto-detected if unset).
-#   LAUNCH_RVIZ         true (default) | false.
-#   USE_SIM_TIME        true (default) | false.
-# ---------------------------------------------------------------------------
-set -euo pipefail
+# Env overrides:
+#   MAP_POSES_PATH        Override path to map_poses.yaml.
+#   GAZEBO_MODEL_PATH     Manual override (auto-detected otherwise).
+#   LAUNCH_RVIZ=false     Skip RViz.
+#   USE_SIM_TIME=false    Use wall clock instead of /clock.
+#   TURTLEBOT3_MODEL      burger (default) | waffle | waffle_pi
+# ──────────────────────────────────────────────────────────────────────────
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+set -eo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: bash $0 <map_name>"
-  echo ""
-  echo "Examples:"
-  echo "  bash $0 warehouse"
-  echo "  bash $0 workshop_example"
-  echo "  bash $0 test_zone"
+  echo "Usage: $0 <MAP_NAME>" >&2
   exit 1
 fi
 
-MAP_NAME="$1"
+MAP_NAME_IN="$1"
 
-MAP_POSES_PATH="${MAP_POSES_PATH:-$WORKSPACE_DIR/src/custom_map_builder/maps/map_poses.yaml}"
-NAV2_PARAMS_FILE="${NAV2_PARAMS_FILE:-/opt/ros/humble/share/nav2_bringup/params/nav2_params.yaml}"
-LLM_PARAMS_FILE="${LLM_PARAMS_FILE:-}"
-MAP_YAML_FALLBACK="${MAP_YAML_FALLBACK:-}"
-LAUNCH_RVIZ="${LAUNCH_RVIZ:-true}"
-USE_SIM_TIME="${USE_SIM_TIME:-true}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+PARSER="${SCRIPT_DIR}/parse_map_poses.py"
 
-# Auto-detect the gazebo_models_worlds_collection so meshed worlds resolve
-# their model:// URIs without the user having to export anything.
-if [[ -z "${GAZEBO_MODEL_PATH:-}" ]]; then
-  for CANDIDATE in \
-    "$WORKSPACE_DIR/world_files/gazebo_models_worlds_collection/models" \
-    "$WORKSPACE_DIR/intro/world_files/gazebo_models_worlds_collection/models"; do
-    if [[ -d "$CANDIDATE" ]]; then
-      GAZEBO_MODEL_PATH="$CANDIDATE"
-      break
-    fi
-  done
-fi
-GAZEBO_MODEL_PATH="${GAZEBO_MODEL_PATH:-}"
-
-if [[ ! -f "$MAP_POSES_PATH" ]]; then
-  echo "ERROR: map_poses.yaml not found at $MAP_POSES_PATH"
-  echo "       Override with MAP_POSES_PATH=/path/to/map_poses.yaml"
+if [[ ! -f "$PARSER" ]]; then
+  echo "parse_map_poses.py not found at $PARSER" >&2
   exit 1
 fi
 
-if [[ ! -f "$NAV2_PARAMS_FILE" ]]; then
-  echo "ERROR: Nav2 params file not found at $NAV2_PARAMS_FILE"
-  echo "       Override with NAV2_PARAMS_FILE=/path/to/nav2_params.yaml"
+if [[ -n "${ROS_DISTRO:-}" && -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
+  # shellcheck disable=SC1091
+  source "/opt/ros/${ROS_DISTRO}/setup.bash"
+fi
+
+if [[ -f "${WORKSPACE_ROOT}/install/setup.bash" ]]; then
+  # shellcheck disable=SC1091
+  source "${WORKSPACE_ROOT}/install/setup.bash"
+fi
+
+# Source .env (LLM_PROVIDER, LLM_MODEL, *_API_KEY, etc.) so the values are
+# inherited by every process the launch system spawns. Without this the
+# llm_agent_node thread crashes with "LLM_PROVIDER not set".
+ENV_FILE=""
+for cand in "${WORKSPACE_ROOT}/.env" "${PWD}/.env"; do
+  if [[ -f "$cand" ]]; then
+    ENV_FILE="$cand"
+    break
+  fi
+done
+if [[ -n "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+if [[ -z "${LLM_PROVIDER:-}" || -z "${LLM_MODEL:-}" ]]; then
+  echo "ERROR: LLM_PROVIDER and LLM_MODEL must be set." >&2
+  echo "       Add them to ${WORKSPACE_ROOT}/.env or export them before running." >&2
+  echo "       (See ${WORKSPACE_ROOT}/.env.example for an example.)" >&2
   exit 1
 fi
 
-# ── Source ROS ────────────────────────────────────────────────────────────
-cd "$WORKSPACE_DIR"
-set +u
-source /opt/ros/humble/setup.bash
-if [[ -f install/setup.bash ]]; then
-  source install/setup.bash
-else
-  echo "WARNING: install/setup.bash not found. Build the workspace first:"
-  echo "  colcon build --packages-select nav2_llm_demo world_to_map"
+# Pre-flight: confirm the llm_agent_node executable was actually installed by
+# colcon. If not, we'd otherwise see Gazebo come up while the agent silently
+# never starts.
+LLM_AGENT_EXE="${WORKSPACE_ROOT}/install/nav2_llm_demo/lib/nav2_llm_demo/llm_agent_node"
+if [[ ! -x "$LLM_AGENT_EXE" ]]; then
+  echo "ERROR: llm_agent_node executable not found at $LLM_AGENT_EXE" >&2
+  echo "       Run: colcon build --packages-select nav2_llm_demo" >&2
+  exit 1
 fi
-set -u
+
+# Pre-flight: confirm LangChain (and the chosen provider package) actually
+# import. The agent node otherwise crashes at module-import time with no
+# obvious error reaching the launch screen.
+if ! python3 -c "from nav2_llm_demo.llm.llm_agent import build_agent" 2>/tmp/llm_import_err; then
+  echo "ERROR: nav2_llm_demo.llm.llm_agent failed to import:" >&2
+  cat /tmp/llm_import_err >&2
+  echo >&2
+  echo "Likely missing pip dependency. Inside the container, run:" >&2
+  echo "  pip install langchain langchain-core langgraph Pillow numpy" >&2
+  echo "  pip install langchain-${LLM_PROVIDER}" >&2
+  exit 1
+fi
 
 export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
 
-echo "================================================================"
-echo "nav2_llm_demo runner"
-echo "  map_name           : $MAP_NAME"
-echo "  map_poses_path     : $MAP_POSES_PATH"
-echo "  nav2_params_file   : $NAV2_PARAMS_FILE"
-echo "  use_sim_time       : $USE_SIM_TIME"
-echo "  launch_rviz        : $LAUNCH_RVIZ"
-echo "  GAZEBO_MODEL_PATH  : ${GAZEBO_MODEL_PATH:-<unset>}"
-[[ -n "$MAP_YAML_FALLBACK" ]] && \
-  echo "  map_yaml_fallback  : $MAP_YAML_FALLBACK"
-[[ -n "$LLM_PARAMS_FILE" ]] && \
-  echo "  llm_params_file    : $LLM_PARAMS_FILE"
-echo "================================================================"
-echo ""
-echo "  - Gazebo and RViz will both open."
-echo "  - The TurtleBot3 will spawn at the 'source' pose recorded in"
-echo "    map_poses.yaml (Gazebo world frame), and the map -> odom TF will"
-echo "    place it at the same spot on the rasterized PGM in RViz."
-echo "  - Send a mission with:"
-echo "      ros2 topic pub --once /navigation_request std_msgs/String \\"
-echo "        \"data: '<your goal alias>'\""
-echo ""
+PARSER_ARGS=("$MAP_NAME_IN")
+if [[ -n "${MAP_POSES_PATH:-}" ]]; then
+  PARSER_ARGS+=("$MAP_POSES_PATH")
+fi
+
+PARSER_OUT="$(python3 "$PARSER" "${PARSER_ARGS[@]}")"
+eval "$PARSER_OUT"
+
+if [[ -z "${MAP_YAML_PATH}" || ! -f "${MAP_YAML_PATH}" ]]; then
+  echo "Could not resolve map YAML for ${MAP_NAME_IN} (got '${MAP_YAML_PATH}')." >&2
+  exit 1
+fi
+
+if [[ -z "${GAZEBO_MODEL_PATH:-}" && -n "${GAZEBO_MODEL_PATH_AUTO}" ]]; then
+  GAZEBO_MODEL_PATH="${GAZEBO_MODEL_PATH_AUTO}"
+fi
+
+LAUNCH_RVIZ="${LAUNCH_RVIZ:-true}"
+USE_SIM_TIME="${USE_SIM_TIME:-true}"
+
+echo "──────────────────────────────────────────────────────────────────────"
+echo "  nav2_llm_demo — LLM agent runner"
+echo "──────────────────────────────────────────────────────────────────────"
+echo "  Map name              : ${MAP_NAME}"
+echo "  map_poses.yaml        : ${MAP_POSES_PATH}"
+echo "  Map YAML              : ${MAP_YAML_PATH}"
+if [[ -n "${SIDECAR_PATH}" ]]; then
+  echo "  Sidecar               : ${SIDECAR_PATH}"
+  echo "  world_to_map_offset   : (${MAP_OFFSET_X}, ${MAP_OFFSET_Y})"
+  if [[ "${HAS_WORLD}" == "1" ]]; then
+    echo "  Gazebo world          : ${WORLD_FILE}"
+  else
+    echo "  Gazebo world          : (sidecar references ${WORLD_FILE} — not "
+    echo "                          found on disk; running legacy flow)"
+  fi
+else
+  echo "  Sidecar               : (none — hand-crafted map, legacy flow)"
+fi
+echo "  Spawn (Gazebo world)  : (${SPAWN_X}, ${SPAWN_Y}, yaw=${SPAWN_YAW})"
+echo "  Source (map frame)    : (${SOURCE_X}, ${SOURCE_Y}, yaw=${SOURCE_YAW})"
+echo "  Destination (map)     : (${DEST_X}, ${DEST_Y}, yaw=${DEST_YAW})"
+echo "  static map->odom TF   : (${STATIC_TF_X}, ${STATIC_TF_Y})"
+if [[ -n "${GAZEBO_MODEL_PATH:-}" ]]; then
+  echo "  GAZEBO_MODEL_PATH     : ${GAZEBO_MODEL_PATH}"
+fi
+echo "  TURTLEBOT3_MODEL      : ${TURTLEBOT3_MODEL}"
+echo "  Launch RViz           : ${LAUNCH_RVIZ}"
+echo "  LLM provider/model    : ${LLM_PROVIDER}/${LLM_MODEL}"
+if [[ -n "$ENV_FILE" ]]; then
+  echo "  .env loaded from      : ${ENV_FILE}"
+fi
+echo "──────────────────────────────────────────────────────────────────────"
 
 LAUNCH_ARGS=(
-  "map_poses_path:=$MAP_POSES_PATH"
-  "map_name:=$MAP_NAME"
-  "nav2_params_file:=$NAV2_PARAMS_FILE"
-  "use_sim_time:=$USE_SIM_TIME"
-  "launch_rviz:=$LAUNCH_RVIZ"
+  "map_yaml:=${MAP_YAML_PATH}"
+  "source_x:=${SOURCE_X}"
+  "source_y:=${SOURCE_Y}"
+  "source_yaw:=${SOURCE_YAW}"
+  "dest_x:=${DEST_X}"
+  "dest_y:=${DEST_Y}"
+  "dest_yaw:=${DEST_YAW}"
+  "spawn_x:=${SPAWN_X}"
+  "spawn_y:=${SPAWN_Y}"
+  "spawn_z:=${SPAWN_Z}"
+  "spawn_yaw:=${SPAWN_YAW}"
+  "static_tf_x:=${STATIC_TF_X}"
+  "static_tf_y:=${STATIC_TF_Y}"
+  "use_sim_time:=${USE_SIM_TIME}"
+  "launch_rviz:=${LAUNCH_RVIZ}"
 )
-[[ -n "$LLM_PARAMS_FILE" ]] && LAUNCH_ARGS+=("llm_params_file:=$LLM_PARAMS_FILE")
-[[ -n "$MAP_YAML_FALLBACK" ]] && LAUNCH_ARGS+=("map_yaml_fallback:=$MAP_YAML_FALLBACK")
-[[ -n "$GAZEBO_MODEL_PATH" ]] && LAUNCH_ARGS+=("gazebo_model_path:=$GAZEBO_MODEL_PATH")
 
-ros2 launch nav2_llm_demo llm_nav.launch.py "${LAUNCH_ARGS[@]}"
+if [[ "${HAS_WORLD}" == "1" ]]; then
+  LAUNCH_ARGS+=("world:=${WORLD_FILE}")
+fi
+
+if [[ -n "${GAZEBO_MODEL_PATH:-}" ]]; then
+  LAUNCH_ARGS+=("gazebo_model_path:=${GAZEBO_MODEL_PATH}")
+fi
+
+exec ros2 launch nav2_llm_demo llm_agent.launch.py "${LAUNCH_ARGS[@]}"
