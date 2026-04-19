@@ -5,9 +5,10 @@ The node:
 - publishes to /cmd_vel for direct robot control
 - aligns map -> odom from the configured source pose and the first odom sample
 - uses TF2 when available, otherwise uses the aligned odom pose in the map frame
-- runs a VisionNavigationAgent that sees an annotated map and calls tools
+- runs a VisionNavigationAgent that replans only on meaningful navigation events
 """
 
+from collections import deque
 import math
 import threading
 import time
@@ -96,9 +97,22 @@ class LlmAgentNode(Node):
         self._map_resolution, self._map_origin_x, self._map_origin_y, self._map_grid = self._load_map()
         self._max_clearance_probe_m = 1.2
         self._last_progress_m: float | None = None
-        self._regression_streak = 0
         self._blocked_forward_streak = 0
         self._navigation_abort_reason: str | None = None
+        self._controller_state = "IDLE"
+        self._controller_step = 0
+        self._replan_count = 0
+        self._recovery_count = 0
+        self._max_replans = 3
+        self._failed_region_memory: dict[tuple[int, int], dict[str, Any]] = {}
+        self._recent_goal_distances: deque[float] = deque(maxlen=10)
+        self._region_bucket_m = 0.5
+        self._failed_region_expiry_steps = 30
+        self._failed_region_threshold = 2
+        self._preferred_recovery_side = "none"
+        self._route_mode = "continue_heading"
+        self._last_recovery_side = "none"
+        self._last_plan_notes = ""
 
         self._pose_lock = threading.Lock()
         self._odom_x = 0.0
@@ -179,9 +193,7 @@ class LlmAgentNode(Node):
         right_free_space = self._clearance_in_direction(x, y, yaw - math.pi / 2.0)
         recommended_step = self._recommended_step(
             forward_free_space,
-            abs(heading_error),
             distance_to_goal,
-            self._regression_streak,
         )
         return {
             "distance_to_goal_m": round(distance_to_goal, 3),
@@ -192,7 +204,6 @@ class LlmAgentNode(Node):
             "recommended_step_m": round(recommended_step, 3),
             "last_progress_m": None if self._last_progress_m is None else round(self._last_progress_m, 3),
             "blocked_streak": self._blocked_forward_streak,
-            "regression_streak": self._regression_streak,
             "in_known_free_space": self._is_known_free(x, y),
         }
 
@@ -215,7 +226,7 @@ class LlmAgentNode(Node):
         return self.move_forward(1.0)
 
     def recover_to_open_side(self) -> str:
-        """Rotate toward the more open side, then attempt one grounded advance."""
+        """Rotate toward the more open side without forcing an immediate forward move."""
         x, y, yaw = self.get_pose()
         left_free_space = self._clearance_in_direction(x, y, yaw + math.pi / 2.0)
         right_free_space = self._clearance_in_direction(x, y, yaw - math.pi / 2.0)
@@ -231,16 +242,146 @@ class LlmAgentNode(Node):
             chosen_side = "right"
 
         rotate_result = self.rotate(turn_deg)
-        advance_result = self.advance_step()
         return (
             f"Recovery chose the {chosen_side} side "
             f"(left {left_free_space:.2f} m, right {right_free_space:.2f} m). "
-            f"{rotate_result} | {advance_result}"
+            f"{rotate_result}"
         )
 
     def back_up(self) -> str:
         """Back up by a short deterministic amount."""
         return self.move_forward(-0.25)
+
+    def _position_bucket(self, x: float, y: float) -> tuple[int, int]:
+        return (
+            int(round(x / self._region_bucket_m)),
+            int(round(y / self._region_bucket_m)),
+        )
+
+    def _record_failed_region(self, kind: str, attempted_side: str = "none") -> None:
+        x, y, _ = self.get_pose()
+        bucket = self._position_bucket(x, y)
+        entry = self._failed_region_memory.setdefault(
+            bucket,
+            {
+                "count": 0,
+                "last_kind": kind,
+                "last_side": attempted_side,
+                "last_step": self._controller_step,
+            },
+        )
+        entry["count"] += 1
+        entry["last_kind"] = kind
+        entry["last_side"] = attempted_side
+        entry["last_step"] = self._controller_step
+
+    def _prune_failed_regions(self) -> None:
+        expired: list[tuple[int, int]] = []
+        for bucket, entry in self._failed_region_memory.items():
+            if self._controller_step - int(entry["last_step"]) > self._failed_region_expiry_steps:
+                expired.append(bucket)
+        for bucket in expired:
+            del self._failed_region_memory[bucket]
+
+    def _current_region_is_bad(self) -> bool:
+        x, y, _ = self.get_pose()
+        bucket = self._position_bucket(x, y)
+        entry = self._failed_region_memory.get(bucket)
+        return entry is not None and int(entry["count"]) >= self._failed_region_threshold
+
+    def _failed_region_summary(self) -> list[dict[str, Any]]:
+        self._prune_failed_regions()
+        items = sorted(
+            self._failed_region_memory.items(),
+            key=lambda item: int(item[1]["count"]),
+            reverse=True,
+        )
+        summary: list[dict[str, Any]] = []
+        for bucket, entry in items[:5]:
+            summary.append(
+                {
+                    "bucket": f"{bucket[0]},{bucket[1]}",
+                    "count": int(entry["count"]),
+                    "last_kind": str(entry["last_kind"]),
+                    "last_side": str(entry["last_side"]),
+                }
+            )
+        return summary
+
+    def _planning_context(self, reason: str) -> dict[str, Any]:
+        x, y, yaw = self.get_pose()
+        base_context = self.get_navigation_context()
+        return {
+            "reason": reason,
+            "controller_state": self._controller_state,
+            "controller_step": self._controller_step,
+            "route_mode": self._route_mode,
+            "preferred_recovery_side": self._preferred_recovery_side,
+            "last_recovery_side": self._last_recovery_side,
+            "last_plan_notes": self._last_plan_notes,
+            "pose": {
+                "x": round(x, 3),
+                "y": round(y, 3),
+                "yaw_deg": round(math.degrees(yaw), 1),
+            },
+            "navigation_context": base_context,
+            "failed_regions": self._failed_region_summary(),
+            "recent_goal_distances": [round(value, 3) for value in self._recent_goal_distances],
+        }
+
+    def _choose_recovery_side(self, ctx: dict[str, Any]) -> str:
+        preferred = self._preferred_recovery_side
+        left_free = float(ctx["left_clearance_m"])
+        right_free = float(ctx["right_clearance_m"])
+        more_open = "left" if left_free >= right_free else "right"
+        opposite = "right" if more_open == "left" else "left"
+
+        avoid_side = "none"
+        x, y, _ = self.get_pose()
+        entry = self._failed_region_memory.get(self._position_bucket(x, y))
+        if entry is not None and int(entry["count"]) >= self._failed_region_threshold:
+            avoid_side = str(entry["last_side"])
+
+        for candidate in (preferred, more_open, opposite):
+            if candidate in {"left", "right"} and candidate != avoid_side:
+                return candidate
+        return more_open
+
+    def _recover_with_side(self, side: str, ctx: dict[str, Any]) -> str:
+        left_free = float(ctx["left_clearance_m"])
+        right_free = float(ctx["right_clearance_m"])
+        turn_deg = 35.0 if side == "left" else -35.0
+        self._last_recovery_side = side
+        rotate_result = self.rotate(turn_deg)
+        return (
+            f"Recovery chose the {side} side "
+            f"(left {left_free:.2f} m, right {right_free:.2f} m). {rotate_result}"
+        )
+
+    def _advance_succeeded(self, result: str) -> bool:
+        return result.startswith("Moved ")
+
+    def _should_replan_for_stuck(self, dist: float) -> bool:
+        self._recent_goal_distances.append(dist)
+        if len(self._recent_goal_distances) < self._recent_goal_distances.maxlen:
+            return False
+        net_improvement = self._recent_goal_distances[0] - self._recent_goal_distances[-1]
+        return net_improvement < 0.5 and self._current_region_is_bad()
+
+    def _run_recovery_sequence(self) -> tuple[str, str]:
+        ctx = self.get_navigation_context()
+        side = self._choose_recovery_side(ctx)
+        rotate_summary = self._recover_with_side(side, ctx)
+
+        ctx_after_turn = self.get_navigation_context()
+        if float(ctx_after_turn["recommended_step_m"]) > 0.0:
+            advance_result = self.advance_step()
+            if self._advance_succeeded(advance_result):
+                return "NAVIGATE", f"{rotate_summary} | {advance_result}"
+
+        self._record_failed_region("recovery_failed", attempted_side=side)
+        back_up_result = self.back_up()
+        return "REPLAN", f"{rotate_summary} | {back_up_result}"
 
     def move_forward(self, distance_m: float, speed: float | None = None) -> str:
         """Drive forward/backward by *distance_m* meters using cmd_vel."""
@@ -253,33 +394,22 @@ class LlmAgentNode(Node):
         forward_free_space = self._clearance_in_direction(
             x0, y0, yaw0 if distance_m >= 0 else yaw0 + math.pi
         )
-        heading_to_goal = math.atan2(self._dest_y - y0, self._dest_x - x0)
-        heading_error_deg = abs(math.degrees(math.atan2(math.sin(heading_to_goal - yaw0), math.cos(heading_to_goal - yaw0))))
         requested_dist = abs(distance_m)
         target_dist = requested_dist
         direction = 1.0 if distance_m >= 0 else -1.0
         if direction > 0:
             safe_dist = self._recommended_step(
                 forward_free_space,
-                heading_error_deg,
                 goal_before,
-                self._regression_streak,
             )
             if safe_dist <= 0.05:
                 self._blocked_forward_streak += 1
                 blocked_msg = (
-                    f"Heuristic blocked forward move: free space ahead {forward_free_space:.2f} m, "
-                    f"heading error {heading_error_deg:.1f} deg. "
-                    f"Blocked streak: {self._blocked_forward_streak}/3."
+                    f"Advance blocked: free space ahead {forward_free_space:.2f} m is too small for a safe step. "
+                    f"Consider recover_to_open_side() or back_up(). "
+                    f"Blocked streak: {self._blocked_forward_streak}."
                 )
-                if self._blocked_forward_streak >= 3:
-                    self._navigation_abort_reason = (
-                        "Stopping navigation after 3 consecutive blocked forward attempts."
-                    )
-                    return f"{blocked_msg} {self._navigation_abort_reason}"
-                return (
-                    blocked_msg
-                )
+                return blocked_msg
             target_dist = safe_dist
         else:
             target_dist = min(requested_dist, 0.4)
@@ -308,24 +438,15 @@ class LlmAgentNode(Node):
         progress = goal_before - goal_after
         self._last_progress_m = progress
         self._blocked_forward_streak = 0
-        if progress < -0.05:
-            self._regression_streak += 1
-        elif progress > 0.05:
-            self._regression_streak = 0
         details = []
         # Report the controller-selected step size for this move.
         details.append(f"step {target_dist:.2f} m")
         # If a reverse request was too large, report the capped distance we actually allowed.
         if direction < 0 and target_dist + 1e-6 < requested_dist:
             details.append(f"Rejected distance: {requested_dist:.2f} m to {target_dist:.2f} m")
-        # report moved away from the goal, or made progress toward the goal, if it's meaningful compared to odometry noise.
-        if progress < -0.05:
-            details.append(f"warning: goal distance increased by {abs(progress):.2f} m")
-        else:
+        # Only report progress when it is meaningfully positive; moving away can be part of recovery.
+        if progress > 0.05:
             details.append(f"progress {progress:.2f} m")
-        # If recent moves have made things worse, include the current regression streak.
-        if self._regression_streak > 0:
-            details.append(f"regression streak {self._regression_streak}")
         suffix = f" ({'; '.join(details)})" if details else ""
         return (
             f"Moved {traveled:.2f} m. Now at ({cx:.2f}, {cy:.2f}). "
@@ -427,13 +548,8 @@ class LlmAgentNode(Node):
     def _recommended_step(
         self,
         forward_free_space: float,
-        heading_error_deg: float,
         distance_to_goal: float,
-        regression_streak: int,
     ) -> float:
-        if heading_error_deg > 35.0:
-            return 0.0
-
         # Reserve a small safety margin instead of using all visible free space ahead.
         safe_forward_room = max(0.0, forward_free_space - 0.10)
         if safe_forward_room <= 0.05:
@@ -448,9 +564,6 @@ class LlmAgentNode(Node):
             step_m = min(distance_to_goal, safe_forward_room, 0.35)
         else:
             step_m = min(safe_forward_room, 0.50)
-
-        if regression_streak >= 2:
-            step_m = min(step_m, 0.15)
 
         return step_m
 
@@ -537,11 +650,91 @@ class LlmAgentNode(Node):
         return self.get_parameter(name).get_parameter_value().string_value
 
     # ------------------------------------------------------------------
-    # Agent loop (background thread)
+    # Event-driven navigation controller
     # ------------------------------------------------------------------
 
+    def _apply_planner_decision(self, decision: Any) -> str:
+        self._route_mode = str(decision.route_mode)
+        self._preferred_recovery_side = str(decision.preferred_recovery_side)
+        self._last_plan_notes = str(decision.notes)
+        if self._route_mode == "backtrack_then_replan":
+            back_up_result = self.back_up()
+            self._route_mode = "continue_heading"
+            return (
+                f"Planner decision: backtrack_then_replan, preferred_side={self._preferred_recovery_side}, "
+                f"notes={self._last_plan_notes}. {back_up_result}"
+            )
+        return (
+            f"Planner decision: mode={self._route_mode}, "
+            f"preferred_side={self._preferred_recovery_side}, notes={self._last_plan_notes}"
+        )
+
+    def _plan_with_agent(self, agent: Any, *, reason: str, include_map: bool = True) -> str:
+        decision = agent.plan(
+            self._planning_context(reason),
+            reason=reason,
+            include_map=include_map,
+        )
+        if reason.startswith("replan"):
+            self._replan_count += 1
+        return self._apply_planner_decision(decision)
+
+    def _controller_iteration(self, agent: Any) -> str:
+        x, y, _ = self.get_pose()
+        dist = math.hypot(self._dest_x - x, self._dest_y - y)
+
+        if self._controller_state == "NAVIGATE":
+            ctx = self.get_navigation_context()
+            if self._current_region_is_bad():
+                self._controller_state = "REPLAN"
+                return "Current region is marked as failed; triggering replanning."
+            if self._should_replan_for_stuck(dist):
+                self._controller_state = "REPLAN"
+                return "Stuck detected from repeated local failures; triggering replanning."
+            if float(ctx["recommended_step_m"]) > 0.0:
+                if abs(float(ctx["heading_error_deg"])) > 25.0 and float(ctx["forward_clearance_m"]) > 0.20:
+                    result = self.turn_toward_goal()
+                    self._blocked_forward_streak = 0
+                    return result
+                return self.advance_step()
+            self._controller_state = "BLOCKED"
+            return (
+                f"Navigation blocked: forward clearance {float(ctx['forward_clearance_m']):.2f} m, "
+                f"recommended step {float(ctx['recommended_step_m']):.2f} m."
+            )
+
+        if self._controller_state == "BLOCKED":
+            self._record_failed_region("advance_blocked")
+            self._controller_state = "RECOVER"
+            return "Blocked event recorded. Starting deterministic recovery."
+
+        if self._controller_state == "RECOVER":
+            self._recovery_count += 1
+            next_state, summary = self._run_recovery_sequence()
+            self._controller_state = next_state
+            return summary
+
+        if self._controller_state == "REPLAN":
+            if self._replan_count >= self._max_replans:
+                self._controller_state = "FAIL"
+                return "Replan budget exhausted."
+            summary = self._plan_with_agent(
+                agent,
+                reason=f"replan_after_{self._controller_step}_steps",
+                include_map=True,
+            )
+            self._controller_state = "NAVIGATE"
+            self._blocked_forward_streak = 0
+            return summary
+
+        if self._controller_state == "FAIL":
+            self._navigation_abort_reason = "Navigation failed after exhausting replans."
+            return self._navigation_abort_reason
+
+        return f"Unhandled controller state: {self._controller_state}"
+
     def _run_agent(self) -> None:
-        """Wait for odom alignment, build the agent, and run the navigation loop."""
+        """Wait for odom alignment, build the planner, and run the state machine."""
         self.get_logger().info("Waiting for odometry data...")
         while rclpy.ok():
             with self._pose_lock:
@@ -570,15 +763,29 @@ class LlmAgentNode(Node):
         max_steps = self._int("max_agent_steps")
         goal_tol = self._float("goal_tolerance_m")
         logged_run_dir = False
+        self._controller_state = "REPLAN"
+        self._replan_count = 0
 
         for step in range(1, max_steps + 1):
+            self._controller_step = step
+            self._prune_failed_regions()
             if not rclpy.ok():
                 break
 
-            self._publish_status(f"Agent step {step}/{max_steps}")
+            x, y, _ = self.get_pose()
+            dist = math.hypot(self._dest_x - x, self._dest_y - y)
+            if dist < goal_tol:
+                self._controller_state = "GOAL_REACHED"
+                self._publish_status(
+                    f"GOAL REACHED after {step - 1} controller steps! "
+                    f"Distance: {dist:.2f} m (tolerance: {goal_tol:.2f} m)"
+                )
+                return
+
+            self._publish_status(f"Controller step {step}/{max_steps} [{self._controller_state}]")
 
             try:
-                summary = agent.step()
+                summary = self._controller_iteration(agent)
                 self._publish_status(f"  -> {summary}")
                 if not logged_run_dir and agent.run_dir:
                     self._publish_status(f"Debug images saved to: {agent.run_dir}")
@@ -591,26 +798,15 @@ class LlmAgentNode(Node):
             if self._navigation_abort_reason is not None:
                 self._publish_status(self._navigation_abort_reason)
                 return
-
-            x, y, _ = self.get_pose()
-            dist = math.hypot(self._dest_x - x, self._dest_y - y)
-            if dist < goal_tol:
-                self._publish_status(
-                    f"GOAL REACHED after {step} steps! "
-                    f"Distance: {dist:.2f} m (tolerance: {goal_tol:.2f} m)"
-                )
-                return
-
-            if agent.goal_reached_in_last_step:
-                self._publish_status(
-                    f"Agent reports goal reached after {step} steps."
-                )
+            if self._controller_state == "FAIL":
+                self._navigation_abort_reason = "Navigation failed after exhausting replans."
+                self._publish_status(self._navigation_abort_reason)
                 return
 
         x, y, _ = self.get_pose()
         dist = math.hypot(self._dest_x - x, self._dest_y - y)
         self._publish_status(
-            f"Agent exhausted {max_steps} steps. "
+            f"Controller exhausted {max_steps} steps. "
             f"Distance to goal: {dist:.2f} m."
         )
 
