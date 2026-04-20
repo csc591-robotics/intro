@@ -8,11 +8,11 @@ The node:
 - runs a VisionNavigationAgent that replans only on meaningful navigation events
 """
 
-from collections import deque
 import math
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from geometry_msgs.msg import TransformStamped, Twist
 from nav_msgs.msg import Odometry
@@ -96,6 +96,7 @@ class LlmAgentNode(Node):
         self._base_frame = self._str("base_frame")
         self._map_resolution, self._map_origin_x, self._map_origin_y, self._map_grid = self._load_map()
         self._max_clearance_probe_m = 1.2
+        self._robot_radius_m = 0.11
         self._last_progress_m: float | None = None
         self._blocked_forward_streak = 0
         self._navigation_abort_reason: str | None = None
@@ -104,14 +105,13 @@ class LlmAgentNode(Node):
         self._replan_count = 0
         self._recovery_count = 0
         self._max_replans = 3
-        self._failed_region_memory: dict[tuple[int, int], dict[str, Any]] = {}
-        self._recent_goal_distances: deque[float] = deque(maxlen=10)
-        self._region_bucket_m = 0.5
-        self._failed_region_expiry_steps = 30
-        self._failed_region_threshold = 2
-        self._preferred_recovery_side = "none"
-        self._route_mode = "continue_heading"
-        self._last_recovery_side = "none"
+        self._max_recovery_attempts = 3
+        self._recovery_attempts_current_event = 0
+        self._current_route_intent = "continue_route"
+        self._route_intent_pending_alignment = False
+        self._failed_route_intents: list[str] = []
+        self._route_failure_streak = 0
+        self._last_route_failure_reason = ""
         self._last_plan_notes = ""
 
         self._pose_lock = threading.Lock()
@@ -252,62 +252,6 @@ class LlmAgentNode(Node):
         """Back up by a short deterministic amount."""
         return self.move_forward(-0.25)
 
-    def _position_bucket(self, x: float, y: float) -> tuple[int, int]:
-        return (
-            int(round(x / self._region_bucket_m)),
-            int(round(y / self._region_bucket_m)),
-        )
-
-    def _record_failed_region(self, kind: str, attempted_side: str = "none") -> None:
-        x, y, _ = self.get_pose()
-        bucket = self._position_bucket(x, y)
-        entry = self._failed_region_memory.setdefault(
-            bucket,
-            {
-                "count": 0,
-                "last_kind": kind,
-                "last_side": attempted_side,
-                "last_step": self._controller_step,
-            },
-        )
-        entry["count"] += 1
-        entry["last_kind"] = kind
-        entry["last_side"] = attempted_side
-        entry["last_step"] = self._controller_step
-
-    def _prune_failed_regions(self) -> None:
-        expired: list[tuple[int, int]] = []
-        for bucket, entry in self._failed_region_memory.items():
-            if self._controller_step - int(entry["last_step"]) > self._failed_region_expiry_steps:
-                expired.append(bucket)
-        for bucket in expired:
-            del self._failed_region_memory[bucket]
-
-    def _current_region_is_bad(self) -> bool:
-        x, y, _ = self.get_pose()
-        bucket = self._position_bucket(x, y)
-        entry = self._failed_region_memory.get(bucket)
-        return entry is not None and int(entry["count"]) >= self._failed_region_threshold
-
-    def _failed_region_summary(self) -> list[dict[str, Any]]:
-        self._prune_failed_regions()
-        items = sorted(
-            self._failed_region_memory.items(),
-            key=lambda item: int(item[1]["count"]),
-            reverse=True,
-        )
-        summary: list[dict[str, Any]] = []
-        for bucket, entry in items[:5]:
-            summary.append(
-                {
-                    "bucket": f"{bucket[0]},{bucket[1]}",
-                    "count": int(entry["count"]),
-                    "last_kind": str(entry["last_kind"]),
-                    "last_side": str(entry["last_side"]),
-                }
-            )
-        return summary
-
     def _planning_context(self, reason: str) -> dict[str, Any]:
         x, y, yaw = self.get_pose()
         base_context = self.get_navigation_context()
@@ -315,9 +259,6 @@ class LlmAgentNode(Node):
             "reason": reason,
             "controller_state": self._controller_state,
             "controller_step": self._controller_step,
-            "route_mode": self._route_mode,
-            "preferred_recovery_side": self._preferred_recovery_side,
-            "last_recovery_side": self._last_recovery_side,
             "last_plan_notes": self._last_plan_notes,
             "pose": {
                 "x": round(x, 3),
@@ -325,33 +266,23 @@ class LlmAgentNode(Node):
                 "yaw_deg": round(math.degrees(yaw), 1),
             },
             "navigation_context": base_context,
-            "failed_regions": self._failed_region_summary(),
-            "recent_goal_distances": [round(value, 3) for value in self._recent_goal_distances],
+            "route_memory": {
+                "current_route_intent": self._current_route_intent,
+                "failed_route_intents": list(self._failed_route_intents),
+                "route_failure_streak": self._route_failure_streak,
+                "last_route_failure_reason": self._last_route_failure_reason,
+            },
         }
 
     def _choose_recovery_side(self, ctx: dict[str, Any]) -> str:
-        preferred = self._preferred_recovery_side
         left_free = float(ctx["left_clearance_m"])
         right_free = float(ctx["right_clearance_m"])
-        more_open = "left" if left_free >= right_free else "right"
-        opposite = "right" if more_open == "left" else "left"
-
-        avoid_side = "none"
-        x, y, _ = self.get_pose()
-        entry = self._failed_region_memory.get(self._position_bucket(x, y))
-        if entry is not None and int(entry["count"]) >= self._failed_region_threshold:
-            avoid_side = str(entry["last_side"])
-
-        for candidate in (preferred, more_open, opposite):
-            if candidate in {"left", "right"} and candidate != avoid_side:
-                return candidate
-        return more_open
+        return "left" if left_free >= right_free else "right"
 
     def _recover_with_side(self, side: str, ctx: dict[str, Any]) -> str:
         left_free = float(ctx["left_clearance_m"])
         right_free = float(ctx["right_clearance_m"])
         turn_deg = 35.0 if side == "left" else -35.0
-        self._last_recovery_side = side
         rotate_result = self.rotate(turn_deg)
         return (
             f"Recovery chose the {side} side "
@@ -361,12 +292,12 @@ class LlmAgentNode(Node):
     def _advance_succeeded(self, result: str) -> bool:
         return result.startswith("Moved ")
 
-    def _should_replan_for_stuck(self, dist: float) -> bool:
-        self._recent_goal_distances.append(dist)
-        if len(self._recent_goal_distances) < self._recent_goal_distances.maxlen:
-            return False
-        net_improvement = self._recent_goal_distances[0] - self._recent_goal_distances[-1]
-        return net_improvement < 0.5 and self._current_region_is_bad()
+    def _record_route_failure(self, reason: str) -> None:
+        self._route_failure_streak += 1
+        self._last_route_failure_reason = reason
+        if self._current_route_intent in {"take_left_branch", "take_right_branch"}:
+            if self._current_route_intent not in self._failed_route_intents:
+                self._failed_route_intents.append(self._current_route_intent)
 
     def _run_recovery_sequence(self) -> tuple[str, str]:
         ctx = self.get_navigation_context()
@@ -379,9 +310,19 @@ class LlmAgentNode(Node):
             if self._advance_succeeded(advance_result):
                 return "NAVIGATE", f"{rotate_summary} | {advance_result}"
 
-        self._record_failed_region("recovery_failed", attempted_side=side)
         back_up_result = self.back_up()
-        return "REPLAN", f"{rotate_summary} | {back_up_result}"
+        if self._recovery_attempts_current_event < self._max_recovery_attempts:
+            return (
+                "BLOCKED",
+                f"{rotate_summary} | {back_up_result} | "
+                f"Recovery attempt {self._recovery_attempts_current_event}/{self._max_recovery_attempts} did not restore a safe route.",
+            )
+        self._record_route_failure("bounded local recovery exhausted")
+        return (
+            "REPLAN",
+            f"{rotate_summary} | {back_up_result} | "
+            f"Route failed after {self._recovery_attempts_current_event} recovery attempts.",
+        )
 
     def move_forward(self, distance_m: float, speed: float | None = None) -> str:
         """Drive forward/backward by *distance_m* meters using cmd_vel."""
@@ -414,6 +355,13 @@ class LlmAgentNode(Node):
         else:
             target_dist = min(requested_dist, 0.4)
 
+        if not self._segment_is_clear(x0, y0, yaw0, direction * target_dist):
+            self._blocked_forward_streak += 1
+            return (
+                f"Advance blocked: path validation rejected {target_dist:.2f} m because the robot footprint "
+                f"would enter occupied space. Blocked streak: {self._blocked_forward_streak}."
+            )
+
         twist = Twist()
         twist.linear.x = direction * speed
 
@@ -438,6 +386,7 @@ class LlmAgentNode(Node):
         progress = goal_before - goal_after
         self._last_progress_m = progress
         self._blocked_forward_streak = 0
+        self._recovery_attempts_current_event = 0
         details = []
         # Report the controller-selected step size for this move.
         details.append(f"step {target_dist:.2f} m")
@@ -532,6 +481,48 @@ class LlmAgentNode(Node):
     def _is_known_free(self, wx: float, wy: float) -> bool:
         value = self._grid_value(wx, wy)
         return value is not None and value >= 200
+
+    def _footprint_is_clear(self, wx: float, wy: float) -> bool:
+        """Conservative occupancy check for the robot footprint."""
+        sample_angles = [
+            0.0,
+            math.pi / 4.0,
+            math.pi / 2.0,
+            3.0 * math.pi / 4.0,
+            math.pi,
+            -3.0 * math.pi / 4.0,
+            -math.pi / 2.0,
+            -math.pi / 4.0,
+        ]
+        sample_points = [(wx, wy)]
+        for angle in sample_angles:
+            sample_points.append(
+                (
+                    wx + self._robot_radius_m * math.cos(angle),
+                    wy + self._robot_radius_m * math.sin(angle),
+                )
+            )
+        for sx, sy in sample_points:
+            value = self._grid_value(sx, sy)
+            if value is None or value < 200:
+                return False
+        return True
+
+    def _segment_is_clear(self, wx: float, wy: float, yaw: float, signed_distance_m: float) -> bool:
+        """Check the entire forward or reverse segment against occupancy."""
+        step = max(self._map_resolution / 2.0, 0.03)
+        total = abs(signed_distance_m)
+        direction = 1.0 if signed_distance_m >= 0.0 else -1.0
+        traveled = 0.0
+        while traveled <= total + 1e-6:
+            sample_x = wx + direction * traveled * math.cos(yaw)
+            sample_y = wy + direction * traveled * math.sin(yaw)
+            if not self._footprint_is_clear(sample_x, sample_y):
+                return False
+            traveled += step
+        end_x = wx + signed_distance_m * math.cos(yaw)
+        end_y = wy + signed_distance_m * math.sin(yaw)
+        return self._footprint_is_clear(end_x, end_y)
 
     def _clearance_in_direction(self, wx: float, wy: float, yaw: float) -> float:
         step = max(self._map_resolution, 0.05)
@@ -654,19 +645,17 @@ class LlmAgentNode(Node):
     # ------------------------------------------------------------------
 
     def _apply_planner_decision(self, decision: Any) -> str:
-        self._route_mode = str(decision.route_mode)
-        self._preferred_recovery_side = str(decision.preferred_recovery_side)
+        self._current_route_intent = str(decision.route_intent)
+        self._route_intent_pending_alignment = self._current_route_intent in {
+            "take_left_branch",
+            "take_right_branch",
+        }
         self._last_plan_notes = str(decision.notes)
-        if self._route_mode == "backtrack_then_replan":
-            back_up_result = self.back_up()
-            self._route_mode = "continue_heading"
-            return (
-                f"Planner decision: backtrack_then_replan, preferred_side={self._preferred_recovery_side}, "
-                f"notes={self._last_plan_notes}. {back_up_result}"
-            )
+        self._recovery_attempts_current_event = 0
+        if self._current_route_intent == "backtrack":
+            return f"Planner decision: route_intent=backtrack, notes={self._last_plan_notes}"
         return (
-            f"Planner decision: mode={self._route_mode}, "
-            f"preferred_side={self._preferred_recovery_side}, notes={self._last_plan_notes}"
+            f"Planner decision: route_intent={self._current_route_intent}, notes={self._last_plan_notes}"
         )
 
     def _plan_with_agent(self, agent: Any, *, reason: str, include_map: bool = True) -> str:
@@ -685,14 +674,27 @@ class LlmAgentNode(Node):
 
         if self._controller_state == "NAVIGATE":
             ctx = self.get_navigation_context()
-            if self._current_region_is_bad():
+            if self._current_route_intent == "backtrack":
+                back_up_result = self.back_up()
                 self._controller_state = "REPLAN"
-                return "Current region is marked as failed; triggering replanning."
-            if self._should_replan_for_stuck(dist):
-                self._controller_state = "REPLAN"
-                return "Stuck detected from repeated local failures; triggering replanning."
+                self._current_route_intent = "continue_route"
+                return f"Executing backtrack intent. {back_up_result}"
+            if self._route_intent_pending_alignment:
+                left_free = float(ctx["left_clearance_m"])
+                right_free = float(ctx["right_clearance_m"])
+                if self._current_route_intent == "take_left_branch" and left_free > 0.20:
+                    self._route_intent_pending_alignment = False
+                    return f"Aligning to planned left branch. {self.rotate(35.0)}"
+                if self._current_route_intent == "take_right_branch" and right_free > 0.20:
+                    self._route_intent_pending_alignment = False
+                    return f"Aligning to planned right branch. {self.rotate(-35.0)}"
+                self._route_intent_pending_alignment = False
             if float(ctx["recommended_step_m"]) > 0.0:
-                if abs(float(ctx["heading_error_deg"])) > 25.0 and float(ctx["forward_clearance_m"]) > 0.20:
+                if (
+                    self._current_route_intent == "continue_route"
+                    and abs(float(ctx["heading_error_deg"])) > 25.0
+                    and float(ctx["forward_clearance_m"]) > 0.20
+                ):
                     result = self.turn_toward_goal()
                     self._blocked_forward_streak = 0
                     return result
@@ -704,12 +706,14 @@ class LlmAgentNode(Node):
             )
 
         if self._controller_state == "BLOCKED":
-            self._record_failed_region("advance_blocked")
+            if self._recovery_attempts_current_event == 0:
+                self._route_failure_streak = 0
             self._controller_state = "RECOVER"
             return "Blocked event recorded. Starting deterministic recovery."
 
         if self._controller_state == "RECOVER":
             self._recovery_count += 1
+            self._recovery_attempts_current_event += 1
             next_state, summary = self._run_recovery_sequence()
             self._controller_state = next_state
             return summary
@@ -720,7 +724,7 @@ class LlmAgentNode(Node):
                 return "Replan budget exhausted."
             summary = self._plan_with_agent(
                 agent,
-                reason=f"replan_after_{self._controller_step}_steps",
+                reason=f"replan_after_route_failure_{self._controller_step}",
                 include_map=True,
             )
             self._controller_state = "NAVIGATE"
@@ -768,7 +772,6 @@ class LlmAgentNode(Node):
 
         for step in range(1, max_steps + 1):
             self._controller_step = step
-            self._prune_failed_regions()
             if not rclpy.ok():
                 break
 

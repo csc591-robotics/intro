@@ -46,9 +46,7 @@ class RobotController(Protocol):
 class PlannerDecision:
     """Structured replanning output consumed by the ROS node."""
 
-    route_mode: str
-    preferred_recovery_side: str
-    avoid_regions: list[str]
+    route_intent: str
     notes: str
     raw_response: str
 
@@ -82,21 +80,19 @@ starting or when the current local strategy has failed.
 
 Return exactly one JSON object with this schema:
 {
-  "route_mode": "continue_heading | prefer_left_open_region | prefer_right_open_region | backtrack_then_replan | avoid_failed_region",
-  "preferred_recovery_side": "left | right | none",
-  "avoid_regions": ["optional short region identifiers"],
+  "route_intent": "continue_route | take_left_branch | take_right_branch | backtrack",
   "notes": "short one-sentence explanation"
 }
 
 Rules:
 - Output JSON only. Do not wrap it in markdown fences.
 - Prefer short notes.
-- Use failed-region summaries to avoid retrying locally bad areas.
+- Use failed-branch summaries to avoid retrying route choices that already failed.
 - Use the map image and structured context together.
-- If the robot is simply on a workable route, use "continue_heading".
-- If one side is clearly a better escape branch, express that in both
-  "route_mode" and "preferred_recovery_side".
-- Use "backtrack_then_replan" if the robot should retreat before trying a new route.
+- If the robot is simply on a workable route, use "continue_route".
+- Use "take_left_branch" or "take_right_branch" only for route-level branch choices.
+- Use "backtrack" only when the current route has failed and the robot should retreat.
+- Do not choose recovery side, turn angle, step size, or any other low-level motion detail.
 """
 
 
@@ -202,9 +198,7 @@ class VisionNavigationAgent:
         return str(content)
 
     def _parse_decision(self, raw_text: str) -> PlannerDecision:
-        route_mode = "continue_heading"
-        preferred_side = "none"
-        avoid_regions: list[str] = []
+        route_intent = "continue_route"
         notes = raw_text.strip()
 
         parsed: dict[str, Any] | None = None
@@ -218,47 +212,28 @@ class VisionNavigationAgent:
             parsed = None
 
         if parsed is not None:
-            route_mode = str(parsed.get("route_mode", route_mode))
-            preferred_side = str(parsed.get("preferred_recovery_side", preferred_side))
-            avoid_regions_raw = parsed.get("avoid_regions", [])
-            if isinstance(avoid_regions_raw, list):
-                avoid_regions = [str(item) for item in avoid_regions_raw if str(item).strip()]
+            route_intent = str(parsed.get("route_intent", route_intent))
             notes = str(parsed.get("notes", notes)).strip() or notes
         else:
             lowered = raw_text.lower()
             if "backtrack" in lowered:
-                route_mode = "backtrack_then_replan"
-            elif "avoid_failed_region" in lowered or "avoid region" in lowered:
-                route_mode = "avoid_failed_region"
+                route_intent = "backtrack"
             elif "left" in lowered:
-                route_mode = "prefer_left_open_region"
-                preferred_side = "left"
+                route_intent = "take_left_branch"
             elif "right" in lowered:
-                route_mode = "prefer_right_open_region"
-                preferred_side = "right"
+                route_intent = "take_right_branch"
 
-        allowed_modes = {
-            "continue_heading",
-            "prefer_left_open_region",
-            "prefer_right_open_region",
-            "backtrack_then_replan",
-            "avoid_failed_region",
+        allowed_intents = {
+            "continue_route",
+            "take_left_branch",
+            "take_right_branch",
+            "backtrack",
         }
-        if route_mode not in allowed_modes:
-            route_mode = "continue_heading"
-
-        if preferred_side not in {"left", "right", "none"}:
-            preferred_side = "none"
-
-        if route_mode == "prefer_left_open_region":
-            preferred_side = "left"
-        elif route_mode == "prefer_right_open_region":
-            preferred_side = "right"
+        if route_intent not in allowed_intents:
+            route_intent = "continue_route"
 
         return PlannerDecision(
-            route_mode=route_mode,
-            preferred_recovery_side=preferred_side,
-            avoid_regions=avoid_regions,
+            route_intent=route_intent,
             notes=notes,
             raw_response=raw_text,
         )
