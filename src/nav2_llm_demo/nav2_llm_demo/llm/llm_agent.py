@@ -19,6 +19,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from .map_renderer import render_annotated_map
+from .request_logger import LlmRequestLogger
 
 
 class RobotController(Protocol):
@@ -46,7 +47,7 @@ class RobotController(Protocol):
 class PlannerDecision:
     """Structured replanning output consumed by the ROS node."""
 
-    route_intent: str
+    route_sequence: list[str]
     notes: str
     raw_response: str
 
@@ -80,7 +81,9 @@ starting or when the current local strategy has failed.
 
 Return exactly one JSON object with this schema:
 {
-  "route_intent": "continue_route | take_left_branch | take_right_branch | backtrack",
+  "route_sequence": [
+    "continue_route | take_left_branch | take_right_branch | backtrack"
+  ],
   "notes": "short one-sentence explanation"
 }
 
@@ -89,6 +92,7 @@ Rules:
 - Prefer short notes.
 - Use failed-branch summaries to avoid retrying route choices that already failed.
 - Use the map image and structured context together.
+- Return a short route sequence of 1 to 4 actions.
 - If the robot is simply on a workable route, use "continue_route".
 - Use "take_left_branch" or "take_right_branch" only for route-level branch choices.
 - Use "backtrack" only when the current route has failed and the robot should retreat.
@@ -180,6 +184,16 @@ class VisionNavigationAgent:
             img_b64 = None
             messages.append(HumanMessage(content=prompt))
 
+        request_logger = LlmRequestLogger(self._ensure_run_dir())
+        request_logger.log_request(
+            prefix=f"plan_{self._plan_num:03d}",
+            system_prompt=SYSTEM_PROMPT,
+            user_prompt=prompt,
+            planning_context=planning_context,
+            reason=reason,
+            img_b64=img_b64,
+        )
+
         response = self._llm.invoke(messages)
         raw_text = self._coerce_text(response.content)
         decision = self._parse_decision(raw_text)
@@ -198,7 +212,7 @@ class VisionNavigationAgent:
         return str(content)
 
     def _parse_decision(self, raw_text: str) -> PlannerDecision:
-        route_intent = "continue_route"
+        route_sequence = ["continue_route"]
         notes = raw_text.strip()
 
         parsed: dict[str, Any] | None = None
@@ -212,16 +226,24 @@ class VisionNavigationAgent:
             parsed = None
 
         if parsed is not None:
-            route_intent = str(parsed.get("route_intent", route_intent))
+            raw_sequence = parsed.get("route_sequence", route_sequence)
+            if isinstance(raw_sequence, list):
+                route_sequence = [str(item) for item in raw_sequence if str(item).strip()]
+            elif isinstance(raw_sequence, str) and raw_sequence.strip():
+                route_sequence = [raw_sequence.strip()]
             notes = str(parsed.get("notes", notes)).strip() or notes
         else:
             lowered = raw_text.lower()
+            inferred: list[str] = []
             if "backtrack" in lowered:
-                route_intent = "backtrack"
-            elif "left" in lowered:
-                route_intent = "take_left_branch"
-            elif "right" in lowered:
-                route_intent = "take_right_branch"
+                inferred.append("backtrack")
+            if "left" in lowered:
+                inferred.append("take_left_branch")
+            if "right" in lowered:
+                inferred.append("take_right_branch")
+            if not inferred:
+                inferred.append("continue_route")
+            route_sequence = inferred[:4]
 
         allowed_intents = {
             "continue_route",
@@ -229,11 +251,13 @@ class VisionNavigationAgent:
             "take_right_branch",
             "backtrack",
         }
-        if route_intent not in allowed_intents:
-            route_intent = "continue_route"
+        cleaned_sequence = [intent for intent in route_sequence if intent in allowed_intents]
+        if not cleaned_sequence:
+            cleaned_sequence = ["continue_route"]
+        cleaned_sequence = cleaned_sequence[:4]
 
         return PlannerDecision(
-            route_intent=route_intent,
+            route_sequence=cleaned_sequence,
             notes=notes,
             raw_response=raw_text,
         )

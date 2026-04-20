@@ -129,8 +129,8 @@ Ensure `echo $DISPLAY` is set on the host when you start Compose (e.g. `:0` or `
 
 
 
-  cd /workspace
   rm -rf build/nav2_llm_demo install/nav2_llm_demo log
   source /opt/ros/humble/setup.bash
   colcon build --packages-select nav2_llm_demo
   source install/setup.bash
+  bash ./run_llm_nav.sh diamond_blocked

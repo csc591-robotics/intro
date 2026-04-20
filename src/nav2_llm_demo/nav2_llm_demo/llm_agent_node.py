@@ -108,7 +108,10 @@ class LlmAgentNode(Node):
         self._max_recovery_attempts = 3
         self._recovery_attempts_current_event = 0
         self._current_route_intent = "continue_route"
+        self._route_plan_queue: list[str] = []
         self._route_intent_pending_alignment = False
+        self._branch_entry_move_pending = False
+        self._branch_entry_target_side = "none"
         self._failed_route_intents: list[str] = []
         self._route_failure_streak = 0
         self._last_route_failure_reason = ""
@@ -268,6 +271,7 @@ class LlmAgentNode(Node):
             "navigation_context": base_context,
             "route_memory": {
                 "current_route_intent": self._current_route_intent,
+                "route_plan_queue": list(self._route_plan_queue),
                 "failed_route_intents": list(self._failed_route_intents),
                 "route_failure_streak": self._route_failure_streak,
                 "last_route_failure_reason": self._last_route_failure_reason,
@@ -275,6 +279,13 @@ class LlmAgentNode(Node):
         }
 
     def _choose_recovery_side(self, ctx: dict[str, Any]) -> str:
+        x, y, yaw = self.get_pose()
+        left_viable = self._direction_viable(x, y, yaw + math.pi / 2.0, 0.25)
+        right_viable = self._direction_viable(x, y, yaw - math.pi / 2.0, 0.25)
+        if left_viable and not right_viable:
+            return "left"
+        if right_viable and not left_viable:
+            return "right"
         left_free = float(ctx["left_clearance_m"])
         right_free = float(ctx["right_clearance_m"])
         return "left" if left_free >= right_free else "right"
@@ -291,6 +302,13 @@ class LlmAgentNode(Node):
 
     def _advance_succeeded(self, result: str) -> bool:
         return result.startswith("Moved ")
+
+    def _clear_branch_entry_intent(self) -> None:
+        """Clear any short-lived branch entry intent after it has been executed."""
+        self._current_route_intent = self._route_plan_queue.pop(0) if self._route_plan_queue else "continue_route"
+        self._route_intent_pending_alignment = False
+        self._branch_entry_move_pending = False
+        self._branch_entry_target_side = "none"
 
     def _record_route_failure(self, reason: str) -> None:
         self._route_failure_streak += 1
@@ -524,6 +542,10 @@ class LlmAgentNode(Node):
         end_y = wy + signed_distance_m * math.sin(yaw)
         return self._footprint_is_clear(end_x, end_y)
 
+    def _direction_viable(self, wx: float, wy: float, yaw: float, probe_distance_m: float) -> bool:
+        """Use the same footprint-aware collision check for branch viability as for motion."""
+        return self._segment_is_clear(wx, wy, yaw, probe_distance_m)
+
     def _clearance_in_direction(self, wx: float, wy: float, yaw: float) -> float:
         step = max(self._map_resolution, 0.05)
         distance = 0.0
@@ -645,17 +667,24 @@ class LlmAgentNode(Node):
     # ------------------------------------------------------------------
 
     def _apply_planner_decision(self, decision: Any) -> str:
-        self._current_route_intent = str(decision.route_intent)
+        sequence = list(decision.route_sequence)
+        self._current_route_intent = sequence[0] if sequence else "continue_route"
+        self._route_plan_queue = sequence[1:] if len(sequence) > 1 else []
         self._route_intent_pending_alignment = self._current_route_intent in {
             "take_left_branch",
             "take_right_branch",
         }
+        self._branch_entry_move_pending = self._route_intent_pending_alignment
+        self._branch_entry_target_side = (
+            "left" if self._current_route_intent == "take_left_branch"
+            else "right" if self._current_route_intent == "take_right_branch"
+            else "none"
+        )
         self._last_plan_notes = str(decision.notes)
         self._recovery_attempts_current_event = 0
-        if self._current_route_intent == "backtrack":
-            return f"Planner decision: route_intent=backtrack, notes={self._last_plan_notes}"
         return (
-            f"Planner decision: route_intent={self._current_route_intent}, notes={self._last_plan_notes}"
+            f"Planner decision: route_sequence={[self._current_route_intent, *self._route_plan_queue]}, "
+            f"notes={self._last_plan_notes}"
         )
 
     def _plan_with_agent(self, agent: Any, *, reason: str, include_map: bool = True) -> str:
@@ -674,21 +703,47 @@ class LlmAgentNode(Node):
 
         if self._controller_state == "NAVIGATE":
             ctx = self.get_navigation_context()
+            if self._current_route_intent == "continue_route" and self._route_plan_queue:
+                self._current_route_intent = self._route_plan_queue.pop(0)
+                self._route_intent_pending_alignment = self._current_route_intent in {
+                    "take_left_branch",
+                    "take_right_branch",
+                }
+                self._branch_entry_move_pending = self._route_intent_pending_alignment
+                self._branch_entry_target_side = (
+                    "left" if self._current_route_intent == "take_left_branch"
+                    else "right" if self._current_route_intent == "take_right_branch"
+                    else "none"
+                )
+                return f"Advancing to next planned action: {self._current_route_intent}"
             if self._current_route_intent == "backtrack":
                 back_up_result = self.back_up()
+                if self._advance_succeeded(back_up_result):
+                    self._current_route_intent = self._route_plan_queue.pop(0) if self._route_plan_queue else "continue_route"
+                    return f"Executing backtrack intent. {back_up_result}"
                 self._controller_state = "REPLAN"
                 self._current_route_intent = "continue_route"
+                self._route_plan_queue = []
                 return f"Executing backtrack intent. {back_up_result}"
             if self._route_intent_pending_alignment:
-                left_free = float(ctx["left_clearance_m"])
-                right_free = float(ctx["right_clearance_m"])
-                if self._current_route_intent == "take_left_branch" and left_free > 0.20:
+                x, y, yaw = self.get_pose()
+                left_viable = self._direction_viable(x, y, yaw + math.pi / 2.0, 0.25)
+                right_viable = self._direction_viable(x, y, yaw - math.pi / 2.0, 0.25)
+                if self._current_route_intent == "take_left_branch" and left_viable:
                     self._route_intent_pending_alignment = False
                     return f"Aligning to planned left branch. {self.rotate(35.0)}"
-                if self._current_route_intent == "take_right_branch" and right_free > 0.20:
+                if self._current_route_intent == "take_right_branch" and right_viable:
                     self._route_intent_pending_alignment = False
                     return f"Aligning to planned right branch. {self.rotate(-35.0)}"
+                failed_branch = self._current_route_intent
+                self._record_route_failure(f"{failed_branch} is not locally traversable")
+                self._route_plan_queue = []
+                self._current_route_intent = "continue_route"
                 self._route_intent_pending_alignment = False
+                self._branch_entry_move_pending = False
+                self._branch_entry_target_side = "none"
+                self._controller_state = "REPLAN"
+                return f"Planned branch {failed_branch} is not locally traversable. Triggering replanning."
             if float(ctx["recommended_step_m"]) > 0.0:
                 if (
                     self._current_route_intent == "continue_route"
@@ -698,7 +753,14 @@ class LlmAgentNode(Node):
                     result = self.turn_toward_goal()
                     self._blocked_forward_streak = 0
                     return result
-                return self.advance_step()
+                advance_result = self.advance_step()
+                if self._advance_succeeded(advance_result):
+                    if self._branch_entry_move_pending:
+                        self._clear_branch_entry_intent()
+                        return f"{advance_result} Branch entry complete; resuming normal navigation."
+                    return advance_result
+                self._controller_state = "BLOCKED"
+                return f"{advance_result} Transitioning to deterministic recovery."
             self._controller_state = "BLOCKED"
             return (
                 f"Navigation blocked: forward clearance {float(ctx['forward_clearance_m']):.2f} m, "
