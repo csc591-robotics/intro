@@ -25,6 +25,7 @@ import tf2_ros
 import yaml
 
 from .llm.llm_agent import build_agent, set_controller
+from .llm.topology_graph import TopologyGraph
 
 
 def _yaw_from_quat(qx: float, qy: float, qz: float, qw: float) -> float:
@@ -109,6 +110,8 @@ class LlmAgentNode(Node):
         self._recovery_attempts_current_event = 0
         self._current_route_intent = "continue_route"
         self._route_plan_queue: list[str] = []
+        self._graph_route_nodes: list[str] = []
+        self._graph_route_sequence: list[str] = []
         self._route_intent_pending_alignment = False
         self._branch_entry_move_pending = False
         self._branch_entry_target_side = "none"
@@ -116,6 +119,7 @@ class LlmAgentNode(Node):
         self._route_failure_streak = 0
         self._last_route_failure_reason = ""
         self._last_plan_notes = ""
+        self._topology_graph = TopologyGraph()
 
         self._pose_lock = threading.Lock()
         self._odom_x = 0.0
@@ -272,11 +276,20 @@ class LlmAgentNode(Node):
             "route_memory": {
                 "current_route_intent": self._current_route_intent,
                 "route_plan_queue": list(self._route_plan_queue),
+                "graph_route_nodes": list(self._graph_route_nodes),
+                "graph_route_sequence": list(self._graph_route_sequence),
                 "failed_route_intents": list(self._failed_route_intents),
                 "route_failure_streak": self._route_failure_streak,
                 "last_route_failure_reason": self._last_route_failure_reason,
             },
+            "topology_graph": self._topology_graph.to_dict(),
         }
+
+    def _derive_graph_route(self, graph: TopologyGraph) -> tuple[list[str], list[str]]:
+        path = graph.find_path()
+        if len(path) < 2:
+            return [], []
+        return path, graph.path_to_route_sequence(path)
 
     def _choose_recovery_side(self, ctx: dict[str, Any]) -> str:
         x, y, yaw = self.get_pose()
@@ -313,6 +326,9 @@ class LlmAgentNode(Node):
     def _record_route_failure(self, reason: str) -> None:
         self._route_failure_streak += 1
         self._last_route_failure_reason = reason
+        failed_routes = self._topology_graph.metadata.setdefault("failed_route_intents", [])
+        if self._current_route_intent not in failed_routes:
+            failed_routes.append(self._current_route_intent)
         if self._current_route_intent in {"take_left_branch", "take_right_branch"}:
             if self._current_route_intent not in self._failed_route_intents:
                 self._failed_route_intents.append(self._current_route_intent)
@@ -667,7 +683,12 @@ class LlmAgentNode(Node):
     # ------------------------------------------------------------------
 
     def _apply_planner_decision(self, decision: Any) -> str:
-        sequence = list(decision.route_sequence)
+        self._topology_graph = decision.topology_graph
+        graph_path, graph_sequence = self._derive_graph_route(self._topology_graph)
+        fallback_sequence = list(decision.route_sequence)
+        sequence = graph_sequence if graph_sequence else fallback_sequence
+        self._graph_route_nodes = list(graph_path)
+        self._graph_route_sequence = list(sequence)
         self._current_route_intent = sequence[0] if sequence else "continue_route"
         self._route_plan_queue = sequence[1:] if len(sequence) > 1 else []
         self._route_intent_pending_alignment = self._current_route_intent in {
@@ -683,7 +704,8 @@ class LlmAgentNode(Node):
         self._last_plan_notes = str(decision.notes)
         self._recovery_attempts_current_event = 0
         return (
-            f"Planner decision: route_sequence={[self._current_route_intent, *self._route_plan_queue]}, "
+            f"Planner decision: graph_route={self._graph_route_nodes or '[]'}, "
+            f"route_sequence={[self._current_route_intent, *self._route_plan_queue]}, "
             f"notes={self._last_plan_notes}"
         )
 
@@ -757,7 +779,13 @@ class LlmAgentNode(Node):
                 if self._advance_succeeded(advance_result):
                     if self._branch_entry_move_pending:
                         self._clear_branch_entry_intent()
+                        if self._graph_route_nodes and not self._route_plan_queue and self._current_route_intent == "continue_route":
+                            self._controller_state = "REPLAN"
+                            return f"{advance_result} Branch entry complete; graph route exhausted; requesting next graph."
                         return f"{advance_result} Branch entry complete; resuming normal navigation."
+                    if self._graph_route_nodes and not self._route_plan_queue and self._current_route_intent == "continue_route":
+                        self._controller_state = "REPLAN"
+                        return f"{advance_result} Graph route complete; requesting next graph."
                     return advance_result
                 self._controller_state = "BLOCKED"
                 return f"{advance_result} Transitioning to deterministic recovery."

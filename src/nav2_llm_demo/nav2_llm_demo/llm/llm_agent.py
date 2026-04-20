@@ -20,6 +20,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from .map_renderer import render_annotated_map
 from .request_logger import LlmRequestLogger
+from .topology_graph import TopologyGraph
 
 
 class RobotController(Protocol):
@@ -47,6 +48,7 @@ class RobotController(Protocol):
 class PlannerDecision:
     """Structured replanning output consumed by the ROS node."""
 
+    topology_graph: TopologyGraph
     route_sequence: list[str]
     notes: str
     raw_response: str
@@ -81,6 +83,36 @@ starting or when the current local strategy has failed.
 
 Return exactly one JSON object with this schema:
 {
+  "topology_graph": {
+    "start_node_id": "start",
+    "goal_node_id": "goal",
+    "notes": "short graph summary",
+    "nodes": [
+      {
+        "node_id": "start",
+        "node_type": "start | goal | junction | corridor | dead_end",
+        "label": "optional human-readable label",
+        "x": 0.0,
+        "y": 0.0,
+        "metadata": {}
+      }
+    ],
+    "edges": [
+      {
+        "from_node": "start",
+        "to_node": "j1",
+        "status": "open | blocked | unknown",
+        "edge_type": "corridor | branch | backtrack",
+        "cost": 1.0,
+        "metadata": {
+          "route_action": "continue_route | take_left_branch | take_right_branch | backtrack",
+          "branch_side": "left | right | none",
+          "steps": 1
+        }
+      }
+    ],
+    "metadata": {}
+  },
   "route_sequence": [
     "continue_route | take_left_branch | take_right_branch | backtrack"
   ],
@@ -92,6 +124,10 @@ Rules:
 - Prefer short notes.
 - Use failed-branch summaries to avoid retrying route choices that already failed.
 - Use the map image and structured context together.
+- Build the topology graph first, then choose a short route sequence through that graph.
+- Encode route intent on graph edges when possible using edge metadata so the node can traverse the graph instead of treating it as a comment.
+- Mark edges that are known blocked, unknown, or open based on the image and context.
+- Keep the graph small and local. Prefer the current navigation region over the whole map.
 - Return a short route sequence of 1 to 4 actions.
 - If the robot is simply on a workable route, use "continue_route".
 - Use "take_left_branch" or "take_right_branch" only for route-level branch choices.
@@ -212,6 +248,7 @@ class VisionNavigationAgent:
         return str(content)
 
     def _parse_decision(self, raw_text: str) -> PlannerDecision:
+        topology_graph = TopologyGraph()
         route_sequence = ["continue_route"]
         notes = raw_text.strip()
 
@@ -226,6 +263,9 @@ class VisionNavigationAgent:
             parsed = None
 
         if parsed is not None:
+            graph_raw = parsed.get("topology_graph", {})
+            if isinstance(graph_raw, dict):
+                topology_graph = TopologyGraph.from_dict(graph_raw)
             raw_sequence = parsed.get("route_sequence", route_sequence)
             if isinstance(raw_sequence, list):
                 route_sequence = [str(item) for item in raw_sequence if str(item).strip()]
@@ -257,6 +297,7 @@ class VisionNavigationAgent:
         cleaned_sequence = cleaned_sequence[:4]
 
         return PlannerDecision(
+            topology_graph=topology_graph,
             route_sequence=cleaned_sequence,
             notes=notes,
             raw_response=raw_text,
