@@ -167,7 +167,9 @@ sleep 3
 
 echo ""
 echo "Streaming /navigation_status in the background..."
-ros2 topic echo /navigation_status &
+(
+  ros2 topic echo /navigation_status || true
+) &
 STATUS_PID=$!
 
 # ---------------------------------------------------------------------------

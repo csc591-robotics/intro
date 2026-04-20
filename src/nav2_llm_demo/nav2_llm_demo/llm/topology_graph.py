@@ -1,62 +1,56 @@
-"""Topology graph primitives for LLM-assisted route planning.
-
-This module gives the LLM a higher-level planning target than raw branch
-choices. The graph is intentionally lightweight:
-
-- nodes represent junctions, corridors, start, and goal
-- edges represent traversable connections between nodes
-- metadata can store map-derived or LLM-derived annotations
-
-The graph is meant to be treated as a proposal that can be validated by
-deterministic code before execution.
-"""
+"""Topology graph primitives for deterministic map extraction and LLM routing."""
 
 from __future__ import annotations
 
+import heapq
 import json
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
 
 @dataclass
 class TopologyNode:
-    """A topological waypoint or region in the route graph."""
+    """A topological waypoint in the navigation graph."""
 
     node_id: str
     node_type: str
+    x: float
+    y: float
     label: str = ""
-    x: float | None = None
-    y: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "node_id": self.node_id,
             "node_type": self.node_type,
-            "label": self.label,
             "x": self.x,
             "y": self.y,
+            "label": self.label,
             "metadata": dict(self.metadata),
         }
 
 
 @dataclass
 class TopologyEdge:
-    """A directed or undirected connection between two topology nodes."""
+    """A traversable connection between two graph nodes."""
 
+    edge_id: str
     from_node: str
     to_node: str
-    status: str = "unknown"
-    edge_type: str = "corridor"
-    cost: float | None = None
+    status: str = "open"
+    cost: float = 1.0
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def is_undirected(self) -> bool:
+        return bool(self.metadata.get("undirected", True))
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "edge_id": self.edge_id,
             "from_node": self.from_node,
             "to_node": self.to_node,
             "status": self.status,
-            "edge_type": self.edge_type,
             "cost": self.cost,
             "metadata": dict(self.metadata),
         }
@@ -64,10 +58,10 @@ class TopologyEdge:
 
 @dataclass
 class TopologyGraph:
-    """A compact graph representation for route-level planning."""
+    """A weighted graph used for routing and blocked-edge replanning."""
 
     nodes: dict[str, TopologyNode] = field(default_factory=dict)
-    edges: list[TopologyEdge] = field(default_factory=list)
+    edges: dict[str, TopologyEdge] = field(default_factory=dict)
     start_node_id: str = ""
     goal_node_id: str = ""
     notes: str = ""
@@ -78,17 +72,17 @@ class TopologyGraph:
         node_id: str,
         node_type: str,
         *,
+        x: float,
+        y: float,
         label: str = "",
-        x: float | None = None,
-        y: float | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> TopologyNode:
         node = TopologyNode(
             node_id=node_id,
             node_type=node_type,
+            x=float(x),
+            y=float(y),
             label=label,
-            x=x,
-            y=y,
             metadata=dict(metadata or {}),
         )
         self.nodes[node_id] = node
@@ -96,51 +90,76 @@ class TopologyGraph:
 
     def add_edge(
         self,
+        edge_id: str,
         from_node: str,
         to_node: str,
         *,
-        status: str = "unknown",
-        edge_type: str = "corridor",
-        cost: float | None = None,
+        status: str = "open",
+        cost: float = 1.0,
         metadata: dict[str, Any] | None = None,
     ) -> TopologyEdge:
         edge = TopologyEdge(
+            edge_id=edge_id,
             from_node=from_node,
             to_node=to_node,
             status=status,
-            edge_type=edge_type,
-            cost=cost,
+            cost=float(cost),
             metadata=dict(metadata or {}),
         )
-        self.edges.append(edge)
+        self.edges[edge_id] = edge
         return edge
 
-    def neighbors(self, node_id: str) -> list[TopologyEdge]:
-        return [edge for edge in self.edges if edge.from_node == node_id]
+    def get_node(self, node_id: str) -> TopologyNode | None:
+        return self.nodes.get(node_id)
+
+    def get_edge(self, edge_id: str) -> TopologyEdge | None:
+        return self.edges.get(edge_id)
 
     def edge_between(self, from_node: str, to_node: str) -> TopologyEdge | None:
-        for edge in self.edges:
+        for edge in self.edges.values():
             if edge.from_node == from_node and edge.to_node == to_node:
+                return edge
+            if edge.is_undirected() and edge.from_node == to_node and edge.to_node == from_node:
                 return edge
         return None
 
-    def _iter_neighbors(self, node_id: str, *, allow_blocked: bool = False) -> list[tuple[str, TopologyEdge]]:
-        neighbors: list[tuple[str, TopologyEdge]] = []
-        for edge in self.neighbors(node_id):
+    def set_edge_status(self, edge_id: str, status: str) -> None:
+        edge = self.edges.get(edge_id)
+        if edge is not None:
+            edge.status = status
+
+    def set_edge_status_between(self, from_node: str, to_node: str, status: str) -> bool:
+        edge = self.edge_between(from_node, to_node)
+        if edge is None:
+            return False
+        edge.status = status
+        return True
+
+    def blocked_edge_ids(self) -> list[str]:
+        return sorted(edge.edge_id for edge in self.edges.values() if edge.status == "blocked")
+
+    def neighbors(self, node_id: str, *, allow_blocked: bool = False) -> list[tuple[str, TopologyEdge]]:
+        result: list[tuple[str, TopologyEdge]] = []
+        for edge in self.edges.values():
             if not allow_blocked and edge.status == "blocked":
                 continue
-            neighbors.append((edge.to_node, edge))
-            if edge.metadata.get("bidirectional") or edge.metadata.get("undirected"):
-                reverse = TopologyEdge(
-                    from_node=edge.to_node,
-                    to_node=edge.from_node,
-                    status=edge.status,
-                    edge_type=edge.edge_type,
-                    cost=edge.cost,
-                    metadata=dict(edge.metadata),
-                )
-                neighbors.append((reverse.to_node, reverse))
-        return neighbors
+            if edge.from_node == node_id:
+                result.append((edge.to_node, edge))
+            elif edge.is_undirected() and edge.to_node == node_id:
+                result.append((edge.from_node, edge))
+        return result
+
+    def nearest_node(self, x: float, y: float, *, include_types: set[str] | None = None) -> TopologyNode | None:
+        best_node: TopologyNode | None = None
+        best_dist = math.inf
+        for node in self.nodes.values():
+            if include_types is not None and node.node_type not in include_types:
+                continue
+            dist = math.hypot(node.x - x, node.y - y)
+            if dist < best_dist:
+                best_dist = dist
+                best_node = node
+        return best_node
 
     def find_path(
         self,
@@ -156,77 +175,73 @@ class TopologyGraph:
         if start == goal:
             return [start]
 
-        queue: list[list[str]] = [[start]]
-        visited = {start}
+        frontier: list[tuple[float, str]] = [(0.0, start)]
+        came_from: dict[str, str | None] = {start: None}
+        costs: dict[str, float] = {start: 0.0}
 
-        while queue:
-            path = queue.pop(0)
-            node_id = path[-1]
-            for next_node, edge in self._iter_neighbors(node_id, allow_blocked=allow_blocked):
-                if next_node in visited or next_node not in self.nodes:
+        while frontier:
+            current_cost, node_id = heapq.heappop(frontier)
+            if node_id == goal:
+                break
+            if current_cost > costs.get(node_id, math.inf):
+                continue
+            for neighbor_id, edge in self.neighbors(node_id, allow_blocked=allow_blocked):
+                next_cost = current_cost + max(0.001, float(edge.cost))
+                if next_cost >= costs.get(neighbor_id, math.inf):
                     continue
-                if not allow_blocked and edge.status == "blocked":
-                    continue
-                new_path = path + [next_node]
-                if next_node == goal:
-                    return new_path
-                visited.add(next_node)
-                queue.append(new_path)
+                costs[neighbor_id] = next_cost
+                came_from[neighbor_id] = node_id
+                heapq.heappush(frontier, (next_cost, neighbor_id))
 
-        return []
-
-    def _edge_action(self, edge: TopologyEdge | None) -> str:
-        if edge is None:
-            return "continue_route"
-        metadata = edge.metadata or {}
-        route_action = str(metadata.get("route_action", "")).strip()
-        if route_action in {
-            "continue_route",
-            "take_left_branch",
-            "take_right_branch",
-            "backtrack",
-        }:
-            return route_action
-        branch_side = str(
-            metadata.get("branch_side")
-            or metadata.get("side")
-            or metadata.get("direction")
-            or metadata.get("turn")
-            or ""
-        ).lower()
-        if edge.edge_type == "backtrack" or route_action == "backtrack":
-            return "backtrack"
-        if edge.edge_type == "branch":
-            if "left" in branch_side:
-                return "take_left_branch"
-            if "right" in branch_side:
-                return "take_right_branch"
-        return "continue_route"
-
-    def _edge_repeat_count(self, edge: TopologyEdge | None) -> int:
-        if edge is None:
-            return 1
-        metadata = edge.metadata or {}
-        raw_steps = metadata.get("steps")
-        if isinstance(raw_steps, int) and raw_steps > 0:
-            return max(1, min(raw_steps, 5))
-        if isinstance(raw_steps, float) and raw_steps > 0.0:
-            return max(1, min(int(round(raw_steps)), 5))
-        if isinstance(edge.cost, (int, float)) and edge.cost > 0.0:
-            return max(1, min(int(round(edge.cost)), 5))
-        return 1
-
-    def path_to_route_sequence(self, path: list[str]) -> list[str]:
-        if len(path) < 2:
+        if goal not in came_from:
             return []
-        sequence: list[str] = []
-        for from_node, to_node in zip(path, path[1:]):
+
+        path: list[str] = []
+        cursor: str | None = goal
+        while cursor is not None:
+            path.append(cursor)
+            cursor = came_from[cursor]
+        path.reverse()
+        return path
+
+    def validate_path(
+        self,
+        path_nodes: list[str],
+        *,
+        start_node_id: str | None = None,
+        goal_node_id: str | None = None,
+        allow_blocked: bool = False,
+    ) -> tuple[bool, str]:
+        if not path_nodes:
+            return False, "Path is empty."
+        for node_id in path_nodes:
+            if node_id not in self.nodes:
+                return False, f"Unknown node '{node_id}'."
+
+        expected_start = (start_node_id or self.start_node_id).strip()
+        expected_goal = (goal_node_id or self.goal_node_id).strip()
+
+        if expected_start and path_nodes[0] != expected_start:
+            return False, f"Path must start at '{expected_start}', got '{path_nodes[0]}'."
+        if expected_goal and path_nodes[-1] != expected_goal:
+            return False, f"Path must end at '{expected_goal}', got '{path_nodes[-1]}'."
+
+        for from_node, to_node in zip(path_nodes, path_nodes[1:]):
             edge = self.edge_between(from_node, to_node)
             if edge is None:
-                edge = self.edge_between(to_node, from_node)
-            action = self._edge_action(edge)
-            sequence.extend([action] * self._edge_repeat_count(edge))
-        return sequence
+                return False, f"No edge exists between '{from_node}' and '{to_node}'."
+            if not allow_blocked and edge.status == "blocked":
+                return False, f"Edge '{edge.edge_id}' between '{from_node}' and '{to_node}' is blocked."
+        return True, "ok"
+
+    def path_cost(self, path_nodes: list[str]) -> float:
+        cost = 0.0
+        for from_node, to_node in zip(path_nodes, path_nodes[1:]):
+            edge = self.edge_between(from_node, to_node)
+            if edge is None:
+                return math.inf
+            cost += edge.cost
+        return cost
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -235,7 +250,45 @@ class TopologyGraph:
             "notes": self.notes,
             "metadata": dict(self.metadata),
             "nodes": [node.to_dict() for node in self.nodes.values()],
-            "edges": [edge.to_dict() for edge in self.edges],
+            "edges": [edge.to_dict() for edge in self.edges.values()],
+        }
+
+    def to_compact_dict(
+        self,
+        *,
+        include_coordinates: bool = True,
+        round_digits: int = 2,
+    ) -> dict[str, Any]:
+        nodes: list[dict[str, Any]] = []
+        for node in self.nodes.values():
+            payload = {
+                "node_id": node.node_id,
+                "node_type": node.node_type,
+            }
+            if include_coordinates:
+                payload["x"] = round(float(node.x), round_digits)
+                payload["y"] = round(float(node.y), round_digits)
+            nodes.append(payload)
+
+        edges: list[dict[str, Any]] = []
+        for edge in self.edges.values():
+            edges.append(
+                {
+                    "edge_id": edge.edge_id,
+                    "from_node": edge.from_node,
+                    "to_node": edge.to_node,
+                    "status": edge.status,
+                    "cost": round(float(edge.cost), round_digits),
+                    "undirected": edge.is_undirected(),
+                }
+            )
+
+        return {
+            "start_node_id": self.start_node_id,
+            "goal_node_id": self.goal_node_id,
+            "notes": self.notes,
+            "nodes": nodes,
+            "edges": edges,
         }
 
     def to_json(self, *, indent: int = 2) -> str:
@@ -256,31 +309,30 @@ class TopologyGraph:
             node_id = str(node_payload.get("node_id", "")).strip()
             if not node_id:
                 continue
-            graph.nodes[node_id] = TopologyNode(
+            graph.add_node(
                 node_id=node_id,
-                node_type=str(node_payload.get("node_type", "junction")),
+                node_type=str(node_payload.get("node_type", "corridor")),
+                x=float(node_payload.get("x", 0.0)),
+                y=float(node_payload.get("y", 0.0)),
                 label=str(node_payload.get("label", "")),
-                x=node_payload.get("x"),
-                y=node_payload.get("y"),
                 metadata=dict(node_payload.get("metadata", {})),
             )
 
         for edge_payload in payload.get("edges", []):
             if not isinstance(edge_payload, dict):
                 continue
+            edge_id = str(edge_payload.get("edge_id", "")).strip()
             from_node = str(edge_payload.get("from_node", "")).strip()
             to_node = str(edge_payload.get("to_node", "")).strip()
-            if not from_node or not to_node:
+            if not edge_id or not from_node or not to_node:
                 continue
-            graph.edges.append(
-                TopologyEdge(
-                    from_node=from_node,
-                    to_node=to_node,
-                    status=str(edge_payload.get("status", "unknown")),
-                    edge_type=str(edge_payload.get("edge_type", "corridor")),
-                    cost=edge_payload.get("cost"),
-                    metadata=dict(edge_payload.get("metadata", {})),
-                )
+            graph.add_edge(
+                edge_id=edge_id,
+                from_node=from_node,
+                to_node=to_node,
+                status=str(edge_payload.get("status", "open")),
+                cost=float(edge_payload.get("cost", 1.0)),
+                metadata=dict(edge_payload.get("metadata", {})),
             )
 
         return graph

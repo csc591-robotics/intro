@@ -1,143 +1,63 @@
-"""LLM replanning helper for event-driven robot navigation.
+"""LLM route planner over a deterministic topology graph."""
 
-The planner is only consulted on meaningful navigation events such as startup
-and replanning after blocked or failed recovery sequences. Low-level movement
-remains deterministic in the ROS node.
-"""
+from __future__ import annotations
 
-import base64
 import json
-import math
 import os
 import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from .map_renderer import render_annotated_map
 from .request_logger import LlmRequestLogger
-from .topology_graph import TopologyGraph
-
-
-class RobotController(Protocol):
-    """Interface the planner uses to gather map-rendering context."""
-
-    def get_pose(self) -> tuple[float, float, float]:
-        ...
-
-    def get_navigation_context(self) -> dict[str, Any]:
-        ...
-
-    @property
-    def map_yaml_path(self) -> str: ...
-    @property
-    def source_x(self) -> float: ...
-    @property
-    def source_y(self) -> float: ...
-    @property
-    def dest_x(self) -> float: ...
-    @property
-    def dest_y(self) -> float: ...
 
 
 @dataclass
 class PlannerDecision:
-    """Structured replanning output consumed by the ROS node."""
+    """Structured route-planning output consumed by the ROS node."""
 
-    topology_graph: TopologyGraph
-    route_sequence: list[str]
+    path_nodes: list[str]
     notes: str
     raw_response: str
 
 
-_controller: RobotController | None = None
-
-
-def set_controller(ctrl: RobotController) -> None:
-    global _controller
-    _controller = ctrl
-
-
-def _ctrl() -> RobotController:
-    if _controller is None:
-        raise RuntimeError("RobotController not registered; call set_controller first")
-    return _controller
+def set_controller(_: Any) -> None:
+    """Retained as a no-op for compatibility with existing imports."""
 
 
 SYSTEM_PROMPT = """\
-You are the global replanning module for a TurtleBot3 navigating a 2D occupancy-grid map.
+You are the route planner for a TurtleBot3 navigating on a deterministic topology graph.
 
-You are not responsible for low-level motor actions. A deterministic local
-controller handles:
-- turning
-- short forward motion
-- backing up
-- bounded recovery
+You do not choose low-level movements. The robot already knows how to:
+- rotate toward a target node
+- move in short bounded steps
+- detect when an attempted edge traversal is blocked
 
-You are responsible for deciding the high-level route intent when navigation is
-starting or when the current local strategy has failed.
+You only choose a legal route through graph nodes.
 
-Return exactly one JSON object with this schema:
+Return exactly one JSON object:
 {
-  "topology_graph": {
-    "start_node_id": "start",
-    "goal_node_id": "goal",
-    "notes": "short graph summary",
-    "nodes": [
-      {
-        "node_id": "start",
-        "node_type": "start | goal | junction | corridor | dead_end",
-        "label": "optional human-readable label",
-        "x": 0.0,
-        "y": 0.0,
-        "metadata": {}
-      }
-    ],
-    "edges": [
-      {
-        "from_node": "start",
-        "to_node": "j1",
-        "status": "open | blocked | unknown",
-        "edge_type": "corridor | branch | backtrack",
-        "cost": 1.0,
-        "metadata": {
-          "route_action": "continue_route | take_left_branch | take_right_branch | backtrack",
-          "branch_side": "left | right | none",
-          "steps": 1
-        }
-      }
-    ],
-    "metadata": {}
-  },
-  "route_sequence": [
-    "continue_route | take_left_branch | take_right_branch | backtrack"
-  ],
+  "path_nodes": ["start", "anchor_2", "anchor_5", "goal"],
   "notes": "short one-sentence explanation"
 }
 
 Rules:
-- Output JSON only. Do not wrap it in markdown fences.
-- Prefer short notes.
-- Use failed-branch summaries to avoid retrying route choices that already failed.
-- Use the map image and structured context together.
-- Build the topology graph first, then choose a short route sequence through that graph.
-- Encode route intent on graph edges when possible using edge metadata so the node can traverse the graph instead of treating it as a comment.
-- Mark edges that are known blocked, unknown, or open based on the image and context.
-- Keep the graph small and local. Prefer the current navigation region over the whole map.
-- Return a short route sequence of 1 to 4 actions.
-- If the robot is simply on a workable route, use "continue_route".
-- Use "take_left_branch" or "take_right_branch" only for route-level branch choices.
-- Use "backtrack" only when the current route has failed and the robot should retreat.
-- Do not choose recovery side, turn angle, step size, or any other low-level motion detail.
+- Output JSON only.
+- `path_nodes` must be a legal node path through the provided graph.
+- The first node must be the provided current node.
+- The last node must be the provided goal node.
+- Never include an edge that is marked `blocked`.
+- Prefer shorter legal routes unless the context says a route recently failed.
+- Keep notes short.
 """
 
 
-class VisionNavigationAgent:
-    """Event-driven planner that returns compact replanning decisions."""
+class RoutePlanningAgent:
+    """Event-driven graph route planner."""
 
     def __init__(self, provider: str | None = None, model_name: str | None = None):
         provider = provider or os.environ.get("LLM_PROVIDER", "")
@@ -155,12 +75,6 @@ class VisionNavigationAgent:
         )
         self._run_dir: Path | None = None
         self._plan_num = 0
-        self._source: tuple[float, float] | None = None
-        self._dest: tuple[float, float] | None = None
-
-    def initialize(self, source_x: float, source_y: float, dest_x: float, dest_y: float) -> None:
-        self._source = (source_x, source_y)
-        self._dest = (dest_x, dest_y)
 
     def _ensure_run_dir(self) -> Path:
         if self._run_dir is None:
@@ -170,55 +84,13 @@ class VisionNavigationAgent:
             self._run_dir.mkdir(parents=True, exist_ok=True)
         return self._run_dir
 
-    def get_map_b64(self) -> str:
-        ctrl = _ctrl()
-        x, y, yaw = ctrl.get_pose()
-        return render_annotated_map(
-            map_yaml_path=ctrl.map_yaml_path,
-            robot_x=x,
-            robot_y=y,
-            robot_yaw=yaw,
-            dest_x=ctrl.dest_x,
-            dest_y=ctrl.dest_y,
-            source_x=ctrl.source_x,
-            source_y=ctrl.source_y,
-            crop_radius_m=10.0,
-            output_size=512,
-        )
-
-    def plan(
-        self,
-        planning_context: dict[str, Any],
-        *,
-        reason: str,
-        include_map: bool = True,
-    ) -> PlannerDecision:
-        """Return a structured high-level replanning decision."""
+    def plan(self, planning_context: dict[str, Any], *, reason: str) -> PlannerDecision:
         self._plan_num += 1
-
         prompt = (
             f"Planning reason: {reason}\n"
-            f"Source: {self._source}\n"
-            f"Destination: {self._dest}\n"
-            f"Planning context JSON:\n{json.dumps(planning_context, indent=2)}\n\n"
-            "Return the JSON decision now."
+            f"Planning context JSON:\n{json.dumps(planning_context, separators=(',', ':'))}\n\n"
+            "Return the JSON route now."
         )
-
-        messages: list[Any] = [SystemMessage(content=SYSTEM_PROMPT)]
-        if include_map:
-            img_b64 = self.get_map_b64()
-            messages.append(
-                HumanMessage(content=[
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{img_b64}"},
-                    },
-                ])
-            )
-        else:
-            img_b64 = None
-            messages.append(HumanMessage(content=prompt))
 
         request_logger = LlmRequestLogger(self._ensure_run_dir())
         request_logger.log_request(
@@ -227,13 +99,16 @@ class VisionNavigationAgent:
             user_prompt=prompt,
             planning_context=planning_context,
             reason=reason,
-            img_b64=img_b64,
+            img_b64=None,
         )
 
-        response = self._llm.invoke(messages)
+        response = self._llm.invoke([
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(content=prompt),
+        ])
         raw_text = self._coerce_text(response.content)
         decision = self._parse_decision(raw_text)
-        self._save_debug_artifacts(reason, planning_context, raw_text, img_b64)
+        self._save_debug_artifacts(reason, planning_context, raw_text)
         return decision
 
     def _coerce_text(self, content: Any) -> str:
@@ -248,57 +123,29 @@ class VisionNavigationAgent:
         return str(content)
 
     def _parse_decision(self, raw_text: str) -> PlannerDecision:
-        topology_graph = TopologyGraph()
-        route_sequence = ["continue_route"]
-        notes = raw_text.strip()
-
-        parsed: dict[str, Any] | None = None
         candidate = raw_text.strip()
         match = re.search(r"\{.*\}", candidate, re.DOTALL)
         if match:
             candidate = match.group(0)
+
+        path_nodes: list[str] = []
+        notes = raw_text.strip()
+
         try:
             parsed = json.loads(candidate)
         except json.JSONDecodeError:
             parsed = None
 
-        if parsed is not None:
-            graph_raw = parsed.get("topology_graph", {})
-            if isinstance(graph_raw, dict):
-                topology_graph = TopologyGraph.from_dict(graph_raw)
-            raw_sequence = parsed.get("route_sequence", route_sequence)
-            if isinstance(raw_sequence, list):
-                route_sequence = [str(item) for item in raw_sequence if str(item).strip()]
-            elif isinstance(raw_sequence, str) and raw_sequence.strip():
-                route_sequence = [raw_sequence.strip()]
+        if isinstance(parsed, dict):
+            raw_nodes = parsed.get("path_nodes", [])
+            if isinstance(raw_nodes, list):
+                path_nodes = [str(node_id).strip() for node_id in raw_nodes if str(node_id).strip()]
+            elif isinstance(raw_nodes, str) and raw_nodes.strip():
+                path_nodes = [raw_nodes.strip()]
             notes = str(parsed.get("notes", notes)).strip() or notes
-        else:
-            lowered = raw_text.lower()
-            inferred: list[str] = []
-            if "backtrack" in lowered:
-                inferred.append("backtrack")
-            if "left" in lowered:
-                inferred.append("take_left_branch")
-            if "right" in lowered:
-                inferred.append("take_right_branch")
-            if not inferred:
-                inferred.append("continue_route")
-            route_sequence = inferred[:4]
-
-        allowed_intents = {
-            "continue_route",
-            "take_left_branch",
-            "take_right_branch",
-            "backtrack",
-        }
-        cleaned_sequence = [intent for intent in route_sequence if intent in allowed_intents]
-        if not cleaned_sequence:
-            cleaned_sequence = ["continue_route"]
-        cleaned_sequence = cleaned_sequence[:4]
 
         return PlannerDecision(
-            topology_graph=topology_graph,
-            route_sequence=cleaned_sequence,
+            path_nodes=path_nodes,
             notes=notes,
             raw_response=raw_text,
         )
@@ -308,15 +155,9 @@ class VisionNavigationAgent:
         reason: str,
         planning_context: dict[str, Any],
         raw_text: str,
-        img_b64: str | None,
     ) -> None:
         run_dir = self._ensure_run_dir()
         prefix = f"plan_{self._plan_num:03d}"
-
-        if img_b64 is not None:
-            png_path = run_dir / f"{prefix}_map.png"
-            png_path.write_bytes(base64.b64decode(img_b64))
-
         meta_path = run_dir / f"{prefix}_meta.txt"
         meta_path.write_text(
             "\n".join(
@@ -341,5 +182,5 @@ class VisionNavigationAgent:
 def build_agent(
     provider: str | None = None,
     model_name: str | None = None,
-) -> VisionNavigationAgent:
-    return VisionNavigationAgent(provider=provider, model_name=model_name)
+) -> RoutePlanningAgent:
+    return RoutePlanningAgent(provider=provider, model_name=model_name)
