@@ -1,0 +1,11 @@
+Step: 42
+Tool result: get_map_view: Map view captured. Robot at (0.26, 3.05), heading 87.2 deg. Distance to destination: 15.47 m.
+
+LLM reasoning: The robot is still close to an obstacle. Let's rotate further to the right and try moving forward again.
+
+### Plan:
+1. Rotate further to the right.
+2. Move forward a short distance.
+
+Proceeding with the rotation.
+Tool call: get_map_view({})

@@ -11,12 +11,16 @@ import math
 import threading
 import time
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry
 import rclpy
+from rclpy.duration import Duration
 from rclpy.node import Node
 from std_msgs.msg import String
 import tf2_ros
+
+# Registers geometry_msgs / PoseStamped converters for Buffer.transform().
+import tf2_geometry_msgs.tf2_geometry_msgs  # noqa: F401
 
 from .llm.llm_agent import build_agent, set_controller
 
@@ -61,6 +65,8 @@ class LlmAgentNode(Node):
         self._odom_y = self._source_y
         self._odom_yaw = self._float("source_yaw")
         self._pose_ready = False
+        self._last_odom_pose: PoseStamped | None = None
+        self._logged_tf_fallback = False
 
         self._cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         status_topic = self._str("status_topic")
@@ -105,28 +111,73 @@ class LlmAgentNode(Node):
         return self._dest_y
 
     def get_pose(self) -> tuple[float, float, float]:
-        """Return (x, y, yaw) in the map frame via TF or odom fallback."""
-        try:
-            t = self._tf_buffer.lookup_transform("map", "base_link", rclpy.time.Time())
-            x = t.transform.translation.x
-            y = t.transform.translation.y
-            yaw = _yaw_from_quat(
-                t.transform.rotation.x,
-                t.transform.rotation.y,
-                t.transform.rotation.z,
-                t.transform.rotation.w,
-            )
-            with self._pose_lock:
-                self._odom_x = x
-                self._odom_y = y
-                self._odom_yaw = yaw
-            return x, y, yaw
-        except (
-            tf2_ros.LookupException,
-            tf2_ros.ConnectivityException,
-            tf2_ros.ExtrapolationException,
-        ):
-            pass
+        """Return (x, y, yaw) in the map frame.
+
+        TurtleBot3 Gazebo publishes ``odom -> base_footprint``.  We prefer that
+        chain over ``map -> base_link`` so the first lookup succeeds reliably.
+
+        If direct map->base lookups fail, we transform the latest ``/odom``
+        pose from ``odom`` into ``map``.  Raw odom (x, y) must **not** be used
+        as map coordinates — that mis-centers map crops for the vision LLM.
+        """
+        timeout = Duration(seconds=2.0)
+        for child in ("base_footprint", "base_link"):
+            try:
+                t = self._tf_buffer.lookup_transform(
+                    "map", child, rclpy.time.Time(), timeout=timeout,
+                )
+                x = t.transform.translation.x
+                y = t.transform.translation.y
+                yaw = _yaw_from_quat(
+                    t.transform.rotation.x,
+                    t.transform.rotation.y,
+                    t.transform.rotation.z,
+                    t.transform.rotation.w,
+                )
+                with self._pose_lock:
+                    self._odom_x = x
+                    self._odom_y = y
+                    self._odom_yaw = yaw
+                return x, y, yaw
+            except (
+                tf2_ros.LookupException,
+                tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException,
+            ):
+                timeout = Duration(seconds=0.5)
+
+        with self._pose_lock:
+            ps = self._last_odom_pose
+        if ps is not None:
+            try:
+                pm = self._tf_buffer.transform(
+                    ps, "map", timeout=Duration(seconds=0.5),
+                )
+                x = pm.pose.position.x
+                y = pm.pose.position.y
+                yaw = _yaw_from_quat(
+                    pm.pose.orientation.x,
+                    pm.pose.orientation.y,
+                    pm.pose.orientation.z,
+                    pm.pose.orientation.w,
+                )
+                if not self._logged_tf_fallback:
+                    self.get_logger().warn(
+                        "map->base_* TF lookup failed; using odom pose transformed "
+                        "into map for navigation / map crops."
+                    )
+                    self._logged_tf_fallback = True
+                with self._pose_lock:
+                    self._odom_x = x
+                    self._odom_y = y
+                    self._odom_yaw = yaw
+                return x, y, yaw
+            except (
+                tf2_ros.LookupException,
+                tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException,
+            ):
+                pass
 
         with self._pose_lock:
             return self._odom_x, self._odom_y, self._odom_yaw
@@ -218,10 +269,14 @@ class LlmAgentNode(Node):
         pos = msg.pose.pose.position
         ori = msg.pose.pose.orientation
         yaw = _yaw_from_quat(ori.x, ori.y, ori.z, ori.w)
+        ps = PoseStamped()
+        ps.header = msg.header
+        ps.pose = msg.pose.pose
         with self._pose_lock:
             self._odom_x = pos.x
             self._odom_y = pos.y
             self._odom_yaw = yaw
+            self._last_odom_pose = ps
             self._pose_ready = True
 
     def _publish_status(self, message: str) -> None:

@@ -118,11 +118,29 @@ def render_annotated_map(
 
     _draw_robot(draw, robot_px, robot_py, robot_yaw, arrow_len=18, img_height=img_h)
 
+    # Crop: start from a square around the robot, then grow the box so the
+    # destination (and optional source) stay in-frame.  If the robot pose used
+    # for cropping is wrong, unioning dest/source still gives the LLM context.
     crop_px = int(crop_radius_m / resolution)
-    left = max(0, robot_px - crop_px)
-    upper = max(0, robot_py - crop_px)
-    right = min(img_w, robot_px + crop_px)
-    lower = min(img_h, robot_py + crop_px)
+    marker_margin = max(24, int(12 / resolution))
+    r0x, r0y = robot_px - crop_px, robot_py - crop_px
+    r1x, r1y = robot_px + crop_px, robot_py + crop_px
+
+    def _grow(px: int, py: int, m: int = marker_margin) -> None:
+        nonlocal r0x, r0y, r1x, r1y
+        r0x = min(r0x, px - m)
+        r0y = min(r0y, py - m)
+        r1x = max(r1x, px + m)
+        r1y = max(r1y, py + m)
+
+    _grow(dest_px, dest_py)
+    if source_x is not None and source_y is not None:
+        _grow(src_px, src_py)
+
+    left = int(max(0, r0x))
+    upper = int(max(0, r0y))
+    right = int(min(img_w, r1x))
+    lower = int(min(img_h, r1y))
 
     if left >= right or upper >= lower:
         left, upper, right, lower = 0, 0, img_w, img_h

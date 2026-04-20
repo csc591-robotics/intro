@@ -1,0 +1,9 @@
+Step: 12
+Tool result: move_forward: Moved 1.01 m. Now at (5.81, 13.24).
+
+LLM reasoning: The robot is nearing the destination. Let's continue moving forward:
+
+1. **Move forward** along the corridor.
+
+I'll proceed with this action.
+Tool call: move_forward({"distance_meters": 1.0})

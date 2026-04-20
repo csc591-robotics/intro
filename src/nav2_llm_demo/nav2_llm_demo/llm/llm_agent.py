@@ -328,7 +328,7 @@ class VisionNavigationAgent:
             robot_x=x, robot_y=y, robot_yaw=yaw,
             dest_x=ctrl.dest_x, dest_y=ctrl.dest_y,
             source_x=ctrl.source_x, source_y=ctrl.source_y,
-            crop_radius_m=10.0,
+            crop_radius_m=18.0,
             output_size=512,
         )
         return img_b64
