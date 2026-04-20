@@ -24,7 +24,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 
-from .map_renderer import render_annotated_map
+from .map_renderer import render_annotated_map, render_full_map
 
 
 # ---------------------------------------------------------------------------
@@ -367,7 +367,7 @@ class VisionNavigationAgent:
             x, y, _ = ctrl.get_pose()
             dist = math.hypot(ctrl.dest_x - x, ctrl.dest_y - y)
             if dist < 0.5:
-                return f"REACHED - {dist:.2f} meters from goal. Navigation complete!", None
+                return f"GOAL REACHED - {dist:.2f} meters from goal. Navigation complete!", None
             return f"NOT_REACHED - {dist:.2f} meters remaining to destination ({ctrl.dest_x:.2f}, {ctrl.dest_y:.2f}).", None
 
         return f"Unknown tool: {name}", None
@@ -377,7 +377,7 @@ class VisionNavigationAgent:
         """Check if the last tool response indicated goal reached."""
         for msg in reversed(self._messages[-5:]):
             content = getattr(msg, "content", "")
-            if isinstance(content, str) and "REACHED -" in content:
+            if isinstance(content, str) and "GOAL REACHED" in content:
                 return True
         return False
 
