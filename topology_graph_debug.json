@@ -83,17 +83,17 @@
       "metadata": {
         "source": "deterministic_topology",
         "merged_anchor_ids": [
-          "anchor_17",
-          "anchor_20"
+          "anchor_20",
+          "anchor_17"
         ],
         "merged_anchor_positions": [
           [
-            14.125,
-            10.175
-          ],
-          [
             13.525,
             9.875
+          ],
+          [
+            14.125,
+            10.175
           ]
         ]
       }

@@ -84,7 +84,7 @@ class LlmAgentNode(Node):
         self.declare_parameter("node_reach_tolerance_m", 0.30)
         self.declare_parameter("graph_waypoint_spacing_m", 0.75)
         self.declare_parameter("anchor_merge_distance_m", 0.75)
-        self.declare_parameter("max_agent_steps", 120)
+        self.declare_parameter("max_agent_steps", 240)
         self.declare_parameter("max_replans", 5)
         self.declare_parameter("edge_stall_step_limit", 6)
         self.declare_parameter("edge_progress_epsilon_m", 0.05)
@@ -458,20 +458,6 @@ class LlmAgentNode(Node):
             )
 
         distance_to_guidance = math.hypot(guidance_x - x, guidance_y - y)
-        if distance_to_guidance < self._active_edge_best_distance - self._edge_progress_epsilon_m:
-            self._active_edge_best_distance = distance_to_guidance
-            self._active_edge_stall_steps = 0
-        else:
-            self._active_edge_stall_steps += 1
-            if self._active_edge_stall_steps >= self._edge_stall_step_limit:
-                return NavigationStepResult(
-                    "blocked",
-                    (
-                        f"Traversal of edge '{edge.edge_id}' stalled while approaching '{target_node_id}'. "
-                        f"Best distance {self._active_edge_best_distance:.2f} m."
-                    ),
-                )
-
         proposed_step = min(self._max_forward_step_m, distance_to_guidance)
         safe_step = self._safe_step_toward_heading(x, y, yaw, target_heading, proposed_step)
         if safe_step <= 0.05:
@@ -503,6 +489,20 @@ class LlmAgentNode(Node):
         success, summary = self._forward_step(safe_step)
         if not success:
             return NavigationStepResult("blocked", summary)
+        distance_after_move = math.hypot(guidance_x - self.get_pose()[0], guidance_y - self.get_pose()[1])
+        if distance_after_move < self._active_edge_best_distance - self._edge_progress_epsilon_m:
+            self._active_edge_best_distance = distance_after_move
+            self._active_edge_stall_steps = 0
+        else:
+            self._active_edge_stall_steps += 1
+            if self._active_edge_stall_steps >= self._edge_stall_step_limit:
+                return NavigationStepResult(
+                    "blocked",
+                    (
+                        f"Traversal of edge '{edge.edge_id}' stalled while approaching '{target_node_id}'. "
+                        f"Best distance {self._active_edge_best_distance:.2f} m."
+                    ),
+                )
         self._active_edge_recovery_failures = 0
         return NavigationStepResult(
             "moving",
