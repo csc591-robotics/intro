@@ -288,7 +288,14 @@ class DeterministicTopologyBuilder:
             candidates.append((distance, candidate.node_id))
 
         if not candidates:
-            nearest = graph.nearest_node(wx, wy)
+            # Fallback to the nearest *non-special* node. If we let nearest_node()
+            # see the just-added start/goal node, it can select itself and create
+            # a self-loop (start->start or goal->goal), disconnecting the graph.
+            nearest = graph.nearest_node(
+                wx,
+                wy,
+                include_types={"anchor", "junction", "corridor"},
+            )
             if nearest is None:
                 raise RuntimeError(f"Could not attach special node '{node_id}' to the graph.")
             candidates = [(math.hypot(nearest.x - wx, nearest.y - wy), nearest.node_id)]
