@@ -100,6 +100,7 @@ class LlmAgentNode(Node):
         self.declare_parameter("move_timeout_sec", 20.0)
         self.declare_parameter("base_frame", "base_footprint")
         self.declare_parameter("robot_radius_m", 0.11)
+        self.declare_parameter("enable_direct_goal_fallback", True)
 
         self._source_x = self._float("source_x")
         self._source_y = self._float("source_y")
@@ -126,6 +127,7 @@ class LlmAgentNode(Node):
         self._move_timeout = self._float("move_timeout_sec")
         self._base_frame = self._str("base_frame")
         self._robot_radius_m = self._float("robot_radius_m")
+        self._enable_direct_goal_fallback = self._bool("enable_direct_goal_fallback")
         self._local_recovery_heading_offsets_deg = self._parse_float_list(
             self._str("local_recovery_heading_offsets_deg"),
             default=[15.0, 30.0, 45.0],
@@ -167,6 +169,7 @@ class LlmAgentNode(Node):
         self._active_edge_recovery_failures = 0
         self._failed_edges: dict[str, str] = {}
         self._controller_state = "WAITING_FOR_ODOM"
+        self._direct_goal_mode = False
         self._workspace_dir = Path(self._map_yaml).resolve().parents[3]
         self._debug_image_dir = self._workspace_dir / "graph_step_debug" / datetime.now().strftime("%Y%m%d_%H%M%S")
         self._debug_image_dir.mkdir(parents=True, exist_ok=True)
@@ -185,6 +188,9 @@ class LlmAgentNode(Node):
             "Graph-based LLM node started. "
             f"Built graph with {len(self._topology_graph.nodes)} nodes and {len(self._topology_graph.edges)} edges."
         )
+        build_stats = self._topology_graph.metadata.get("build_stats", {})
+        if build_stats:
+            self._publish_status(f"Graph build stats: {json.dumps(build_stats, sort_keys=True)}")
         self._save_graph_debug_artifact()
         self._publish_status(f"Per-step debug images will be saved to: {self._debug_image_dir}")
 
@@ -241,6 +247,11 @@ class LlmAgentNode(Node):
                 f"step={step} state={self._controller_state}",
                 f"target_node={target_node_id or 'none'} active_edge={self._active_edge_id or 'none'}",
                 f"route_cursor={self._route_cursor} route_len={len(self._route_nodes)} blocked_edges={len(self._topology_graph.blocked_edge_ids())}",
+                (
+                    f"graph_nodes={len(self._topology_graph.nodes)} graph_edges={len(self._topology_graph.edges)} "
+                    f"direct_fallback={self._direct_goal_mode} "
+                    f"collapsed_reverted={self._topology_graph.metadata.get('build_stats', {}).get('collapsed_reverted', False)}"
+                ),
                 f"pose=({x:.2f}, {y:.2f}) yaw={math.degrees(yaw):.1f} deg",
                 f"summary={summary[:180]}",
             ],
@@ -286,14 +297,35 @@ class LlmAgentNode(Node):
         )
 
         candidate_path = list(decision.path_nodes)
-        valid, message = self._topology_graph.validate_path(
-            candidate_path,
-            start_node_id=current_node_id,
-            goal_node_id=goal_node_id,
-        )
+        if candidate_path == [goal_node_id] and current_node_id == goal_node_id:
+            self._controller_state = "GOAL_REACHED"
+            self._last_plan_notes = decision.notes
+            return "Already at goal. Skipping graph traversal."
+
+        valid = bool(candidate_path)
+        message = "Path is empty."
+        if valid:
+            valid, message = self._topology_graph.validate_path(
+                candidate_path,
+                start_node_id=current_node_id,
+                goal_node_id=goal_node_id,
+            )
         if not valid:
             fallback_path = self._topology_graph.find_path(current_node_id, goal_node_id)
             if not fallback_path:
+                if self._enable_direct_goal_fallback:
+                    self._direct_goal_mode = True
+                    self._route_nodes = []
+                    self._route_cursor = 0
+                    self._reset_active_edge_tracking()
+                    self._last_plan_notes = (
+                        f"{decision.notes} | Graph route unavailable ({message}); switching to direct-goal fallback."
+                    ).strip(" |")
+                    return (
+                        f"No graph route from '{current_node_id}' to '{goal_node_id}'. "
+                        "Switching to direct-goal fallback."
+                    )
+
                 self._controller_state = "FAIL"
                 self._navigation_abort_reason = (
                     f"No route available from '{current_node_id}' to '{goal_node_id}' "
@@ -305,14 +337,33 @@ class LlmAgentNode(Node):
                 f"{decision.notes} | LLM route invalid ({message}); using deterministic shortest path."
             ).strip(" |")
 
+        if len(candidate_path) < 2:
+            if candidate_path == [goal_node_id] and current_node_id == goal_node_id:
+                self._controller_state = "GOAL_REACHED"
+                self._last_plan_notes = decision.notes
+                return "Already at goal. No movement needed."
+            if self._enable_direct_goal_fallback:
+                self._direct_goal_mode = True
+                self._route_nodes = []
+                self._route_cursor = 0
+                self._reset_active_edge_tracking()
+                self._last_plan_notes = (
+                    f"{decision.notes} | Degenerate graph route {candidate_path}; switching to direct-goal fallback."
+                ).strip(" |")
+                return (
+                    f"Degenerate graph route {candidate_path}. "
+                    "Switching to direct-goal fallback."
+                )
+            self._controller_state = "FAIL"
+            self._navigation_abort_reason = (
+                f"Degenerate route {candidate_path} from '{current_node_id}' to '{goal_node_id}'."
+            )
+            return self._navigation_abort_reason
+
+        self._direct_goal_mode = False
         self._route_nodes = candidate_path
         self._route_cursor = 1 if len(candidate_path) > 1 else 0
-        self._active_edge_id = ""
-        self._active_edge_best_distance = math.inf
-        self._active_edge_stall_steps = 0
-        self._active_edge_waypoints = []
-        self._active_edge_waypoint_index = 0
-        self._active_edge_recovery_failures = 0
+        self._reset_active_edge_tracking()
         self._last_plan_notes = decision.notes
         return (
             f"Planned node route: {self._route_nodes}. "
@@ -391,7 +442,15 @@ class LlmAgentNode(Node):
         if target_node is None:
             return NavigationStepResult("replan", f"Target node '{target_node_id}' is missing. Triggering replanning.")
 
-        current_node_id = self._route_nodes[self._route_cursor - 1]
+        current_node_id = self._route_nodes[self._route_cursor - 1] if self._route_cursor > 0 else self._current_graph_node_id()
+        if current_node_id == target_node_id:
+            self._route_cursor += 1
+            self._reset_active_edge_tracking()
+            return NavigationStepResult(
+                "reached",
+                f"Route cursor already at node '{target_node_id}'. Advancing.",
+            )
+
         edge = self._topology_graph.edge_between(current_node_id, target_node_id)
         if edge is None:
             return NavigationStepResult(
@@ -417,12 +476,7 @@ class LlmAgentNode(Node):
         distance_to_target = math.hypot(target_node.x - x, target_node.y - y)
         if distance_to_target <= self._node_reach_tolerance_m:
             self._route_cursor += 1
-            self._active_edge_id = ""
-            self._active_edge_best_distance = math.inf
-            self._active_edge_stall_steps = 0
-            self._active_edge_waypoints = []
-            self._active_edge_waypoint_index = 0
-            self._active_edge_recovery_failures = 0
+            self._reset_active_edge_tracking()
             return NavigationStepResult(
                 "reached",
                 f"Reached node '{target_node_id}' at ({target_node.x:.2f}, {target_node.y:.2f}).",
@@ -508,6 +562,72 @@ class LlmAgentNode(Node):
             "moving",
             f"Following edge '{edge.edge_id}' toward node '{target_node_id}'. {summary}",
         )
+
+    def _navigate_direct_goal(self) -> NavigationStepResult:
+        x, y, yaw = self.get_pose()
+        distance_to_goal = math.hypot(self._dest_x - x, self._dest_y - y)
+        if distance_to_goal <= self._goal_tolerance_m:
+            self._controller_state = "GOAL_REACHED"
+            return NavigationStepResult(
+                "reached",
+                (
+                    f"GOAL REACHED via direct-goal fallback. "
+                    f"Current pose ({x:.2f}, {y:.2f}), goal distance {distance_to_goal:.2f} m."
+                ),
+            )
+
+        target_heading = math.atan2(self._dest_y - y, self._dest_x - x)
+        heading_error_deg = math.degrees(
+            math.atan2(math.sin(target_heading - yaw), math.cos(target_heading - yaw))
+        )
+        if abs(heading_error_deg) > self._heading_alignment_tolerance_deg:
+            rotate_deg = max(-self._max_rotation_step_deg, min(self._max_rotation_step_deg, heading_error_deg))
+            summary = self._rotate_step(rotate_deg)
+            return NavigationStepResult(
+                "rotating",
+                (
+                    f"Direct-goal fallback rotating toward destination "
+                    f"(heading error {heading_error_deg:.1f} deg). {summary}"
+                ),
+            )
+
+        proposed_step = min(self._max_forward_step_m, distance_to_goal)
+        safe_step = self._safe_step_toward_heading(x, y, yaw, target_heading, proposed_step)
+        if safe_step <= 0.05:
+            recovery = self._run_local_edge_recovery(
+                target_node_id="goal",
+                target_heading=target_heading,
+                guidance_point=(self._dest_x, self._dest_y),
+                distance_to_target=distance_to_goal,
+            )
+            if recovery is not None:
+                return NavigationStepResult(
+                    "moving",
+                    f"Direct-goal fallback recovery: {recovery.message}",
+                )
+            return NavigationStepResult(
+                "blocked",
+                (
+                    "Direct-goal fallback could not find a safe forward step. "
+                    f"Distance to destination {distance_to_goal:.2f} m."
+                ),
+            )
+
+        success, summary = self._forward_step(safe_step)
+        if not success:
+            return NavigationStepResult("blocked", summary)
+        return NavigationStepResult(
+            "moving",
+            f"Direct-goal fallback moving toward destination. {summary}",
+        )
+
+    def _reset_active_edge_tracking(self) -> None:
+        self._active_edge_id = ""
+        self._active_edge_best_distance = math.inf
+        self._active_edge_stall_steps = 0
+        self._active_edge_waypoints = []
+        self._active_edge_waypoint_index = 0
+        self._active_edge_recovery_failures = 0
 
     def _safe_step_toward_heading(
         self,
@@ -603,12 +723,7 @@ class LlmAgentNode(Node):
         edge.status = "blocked"
         edge.metadata["blocked_reason"] = reason
         self._failed_edges[edge.edge_id] = reason
-        self._active_edge_id = ""
-        self._active_edge_best_distance = math.inf
-        self._active_edge_stall_steps = 0
-        self._active_edge_waypoints = []
-        self._active_edge_waypoint_index = 0
-        self._active_edge_recovery_failures = 0
+        self._reset_active_edge_tracking()
         return f"Marked edge '{edge.edge_id}' ({from_node} -> {to_node}) blocked: {reason}"
 
     def _forward_step(self, distance_m: float) -> tuple[bool, str]:
@@ -760,11 +875,19 @@ class LlmAgentNode(Node):
                 f"goal distance {distance_to_goal:.2f} m."
             )
 
+        if self._direct_goal_mode:
+            result = self._navigate_direct_goal()
+            if result.status == "blocked":
+                self._controller_state = "FAIL"
+                self._navigation_abort_reason = result.message
+                return result.message
+            return result.message
+
         if not self._route_nodes or self._route_cursor >= len(self._route_nodes):
             self._controller_state = "REPLAN"
             summary = self._plan_route(agent, reason=f"plan_step_{self._replan_count}")
-            if self._controller_state != "FAIL":
-                self._controller_state = "FOLLOW_ROUTE"
+            if self._controller_state not in {"FAIL", "GOAL_REACHED"}:
+                self._controller_state = "DIRECT_GOAL" if self._direct_goal_mode else "FOLLOW_ROUTE"
             return summary
 
         result = self._navigate_active_edge()
@@ -777,8 +900,8 @@ class LlmAgentNode(Node):
                 return f"{blocked_summary} Replan budget exhausted."
             self._controller_state = "REPLAN"
             summary = self._plan_route(agent, reason=f"replan_after_{self._replan_count}")
-            if self._controller_state != "FAIL":
-                self._controller_state = "FOLLOW_ROUTE"
+            if self._controller_state not in {"FAIL", "GOAL_REACHED"}:
+                self._controller_state = "DIRECT_GOAL" if self._direct_goal_mode else "FOLLOW_ROUTE"
             return f"{blocked_summary} {summary}"
         if result.status == "replan":
             self._replan_count += 1
@@ -788,8 +911,8 @@ class LlmAgentNode(Node):
                 return result.message
             self._controller_state = "REPLAN"
             summary = self._plan_route(agent, reason=f"replan_after_{self._replan_count}")
-            if self._controller_state != "FAIL":
-                self._controller_state = "FOLLOW_ROUTE"
+            if self._controller_state not in {"FAIL", "GOAL_REACHED"}:
+                self._controller_state = "DIRECT_GOAL" if self._direct_goal_mode else "FOLLOW_ROUTE"
             return f"{result.message} {summary}"
         return result.message
 
@@ -868,6 +991,9 @@ class LlmAgentNode(Node):
 
     def _str(self, name: str) -> str:
         return self.get_parameter(name).get_parameter_value().string_value
+
+    def _bool(self, name: str) -> bool:
+        return self.get_parameter(name).get_parameter_value().bool_value
 
     def _parse_float_list(self, raw: str, *, default: list[float]) -> list[float]:
         values: list[float] = []

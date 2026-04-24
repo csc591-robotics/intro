@@ -205,10 +205,59 @@ class DeterministicTopologyBuilder:
         if goal_pose is not None:
             self._attach_special_node(graph, "goal", *goal_pose)
 
+        pre_simplify = TopologyGraph.from_dict(graph.to_dict())
         self._simplify_graph(graph)
         self._merge_nearby_anchors(graph)
         self._simplify_graph(graph)
+
+        reverted_collapse = False
+        if self._is_degenerate_after_collapse(pre_simplify, graph):
+            graph = pre_simplify
+            reverted_collapse = True
+
+        graph.metadata["build_stats"] = {
+            "pre_nodes": len(pre_simplify.nodes),
+            "pre_edges": len(pre_simplify.edges),
+            "post_nodes": len(graph.nodes),
+            "post_edges": len(graph.edges),
+            "collapsed_reverted": reverted_collapse,
+            "connectivity_ok": bool(
+                graph.find_path(graph.start_node_id, graph.goal_node_id)
+            ),
+        }
         return graph
+
+    def _is_degenerate_after_collapse(
+        self,
+        before: TopologyGraph,
+        after: TopologyGraph,
+    ) -> bool:
+        before_non_special = self._non_special_node_count(before)
+        after_non_special = self._non_special_node_count(after)
+        before_path = bool(before.find_path(before.start_node_id, before.goal_node_id))
+        after_path = bool(after.find_path(after.start_node_id, after.goal_node_id))
+
+        if before_non_special > 0 and after_non_special == 0:
+            return True
+        if len(before.edges) > 1 and len(after.edges) <= 1:
+            return True
+        if before_path and not after_path:
+            return True
+        for special_node in ("start", "goal"):
+            if special_node in after.nodes and self._non_self_neighbor_count(after, special_node) == 0:
+                return True
+        return False
+
+    def _non_special_node_count(self, graph: TopologyGraph) -> int:
+        return sum(1 for node in graph.nodes.values() if node.node_type not in {"start", "goal"})
+
+    def _non_self_neighbor_count(self, graph: TopologyGraph, node_id: str) -> int:
+        neighbors = set()
+        for neighbor_id, _edge in graph.neighbors(node_id, allow_blocked=True):
+            if neighbor_id == node_id:
+                continue
+            neighbors.add(neighbor_id)
+        return len(neighbors)
 
     def _emit_corridor(
         self,

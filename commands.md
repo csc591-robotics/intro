@@ -3,6 +3,67 @@
 Run `run_llm_nav.sh` only inside the Docker container.
 Do not run it from your Mac host shell.
 
+## Warehouse
+
+Use this when the full `warehouse.world` assets are not available and you want
+the warehouse map + graph agent to run reliably.
+
+### Terminal 1 (host): start container
+```bash
+docker compose up -d --build
+docker compose exec autonomous_pathing_llm bash
+```
+
+### Terminal 2 (container): build + source
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+rm -rf build/nav2_llm_demo install/nav2_llm_demo log
+colcon build --packages-select nav2_llm_demo
+source /workspace/install/setup.bash
+```
+
+### Terminal 3 (container): run simulator (empty world, headless)
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+source /workspace/install/setup.bash
+export TURTLEBOT3_MODEL=burger
+ros2 launch turtlebot3_gazebo empty_world.launch.py x_pose:=3.981274 y_pose:=7.866986 gui:=false
+```
+
+### Terminal 4 (container): run warehouse map + graph node
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+source /workspace/install/setup.bash
+ros2 launch nav2_llm_demo llm_agent.launch.py \
+  map_yaml:=/workspace/src/world_to_map/maps/warehouse.yaml \
+  source_x:=3.981274 source_y:=7.866986 source_yaw:=0.0 \
+  dest_x:=11.512874 dest_y:=13.666186 dest_yaw:=0.0 \
+  static_tf_x:=0.0 static_tf_y:=0.0 \
+  use_sim_time:=true launch_rviz:=false
+```
+
+### Terminal 5 (container): quick checks
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+source /workspace/install/setup.bash
+ros2 topic echo /odom --once
+python3 - <<'PY'
+import json
+g = json.load(open('/workspace/topology_graph_debug.json'))
+print('nodes=', len(g['nodes']), 'edges=', len(g['edges']))
+print('node_ids=', [n['node_id'] for n in g['nodes']])
+print('edges=', [(e['from_node'], e['to_node']) for e in g['edges']])
+PY
+```
+
 
 ## In a terminal on your local machine
 ```bash
