@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "Let's try moving forward again.",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "call_NrWMmKht5aVPdvCtYD7bTTJq",
+      "type": "tool_call"
+    }
+  ]
+}

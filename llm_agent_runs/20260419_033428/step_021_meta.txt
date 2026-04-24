@@ -1,0 +1,11 @@
+Step: 21
+Tool result: get_map_view: Map view captured. Robot at (0.01, 2.70), heading 67.7 deg. Distance to destination: 15.89 m.
+
+LLM reasoning: The robot has veered slightly to the left. Let's adjust the heading and continue.
+
+### Plan:
+1. Rotate slightly to the right to correct the heading.
+2. Move forward a short distance.
+
+Proceeding with the rotation.
+Tool call: get_map_view({})

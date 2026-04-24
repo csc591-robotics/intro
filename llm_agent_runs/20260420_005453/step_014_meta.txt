@@ -1,0 +1,5 @@
+Step: 14
+Tool result: move_forward: Moved 1.01 m. Now at (10.81, 9.88).
+
+LLM reasoning: Let's continue moving forward towards the destination. I'll proceed with another move.
+Tool call: move_forward({"distance_meters": 1.0})

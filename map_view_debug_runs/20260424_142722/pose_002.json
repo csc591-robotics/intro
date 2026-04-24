@@ -1,0 +1,20 @@
+{
+  "click": 2,
+  "input_pose_map": {
+    "x": 9.055285453796387,
+    "y": 13.692154884338379,
+    "yaw_rad": 0.21845854083008515,
+    "yaw_deg": 12.51675238815025
+  },
+  "map_yaml": "/workspace/src/world_to_map/maps/warehouse.yaml",
+  "source": [
+    3.981274,
+    7.866986
+  ],
+  "destination": [
+    11.512874,
+    13.666186
+  ],
+  "crop_radius_m": 18.0,
+  "output_size": 512
+}

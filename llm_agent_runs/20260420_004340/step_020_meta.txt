@@ -1,0 +1,5 @@
+Step: 20
+Tool result: move_forward: Timed out after moving 0.11 m of requested 1.00 m.
+
+LLM reasoning: The robot is close to the destination. Let's move forward a bit more to reach the goal.
+Tool call: move_forward({"distance_meters": 1.0})

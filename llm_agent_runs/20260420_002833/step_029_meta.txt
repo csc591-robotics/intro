@@ -1,0 +1,10 @@
+Step: 29
+Tool result: get_map_view: Map view captured. Robot at (4.15, 14.66), heading 84.0 deg. Distance to destination: 7.43 m.
+
+LLM reasoning: The robot is still not aligned correctly. Let's adjust the heading more to the right and continue:
+
+1. **Rotate** further to the right.
+2. **Move forward** in small steps.
+
+Let's proceed with these actions.
+Tool call: get_map_view({})

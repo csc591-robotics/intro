@@ -1,0 +1,12 @@
+Step: 2
+Tool result: rotate: Rotated 91.1 deg. Heading now 91.1 deg.
+
+LLM reasoning: To navigate to the destination, follow these steps:
+
+1. **Rotate**: Turn right to align with the corridor.
+2. **Move Forward**: Proceed through the corridor.
+3. **Rotate**: Turn left to face the destination.
+4. **Move Forward**: Continue towards the destination.
+
+Let's start by rotating right.
+Tool call: rotate({"angle_degrees": 90})

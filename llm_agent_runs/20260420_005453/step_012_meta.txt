@@ -1,0 +1,5 @@
+Step: 12
+Tool result: rotate: Rotated 91.1 deg. Heading now 91.2 deg.
+
+LLM reasoning: We're close to the destination. We need to rotate left to align with the destination and then move forward. Let's rotate first.
+Tool call: rotate({"angle_degrees": 90})

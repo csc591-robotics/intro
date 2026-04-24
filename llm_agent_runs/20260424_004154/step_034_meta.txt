@@ -1,0 +1,4 @@
+Step: 34
+Tool result: get_map_view: Map view captured. Robot at (3.63, 8.51), heading -64.0 deg. Distance to destination: 9.42 m.
+
+Tool call: get_map_view({})

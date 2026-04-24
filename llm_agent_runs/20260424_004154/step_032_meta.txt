@@ -1,0 +1,4 @@
+Step: 32
+Tool result: rotate: Rotated 90.7 deg. Heading now -73.6 deg.
+
+Tool call: rotate({"angle_degrees": 90})

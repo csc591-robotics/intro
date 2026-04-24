@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "We're close but need to adjust our path. Let's rotate left to align more directly with the destination.",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 45
+      },
+      "id": "call_rJOarsD1Hjr4HIF9BQbG55ht",
+      "type": "tool_call"
+    }
+  ]
+}

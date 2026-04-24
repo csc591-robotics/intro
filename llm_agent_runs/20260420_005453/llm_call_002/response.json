@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "To reach the destination, we need to navigate through the open path. Here's the plan:\n\n1. Move forward through the open corridor.\n2. Rotate as needed to align with the destination.\n\nLet's start by moving forward. I'll proceed with the first move.",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "call_iSp3Pr8karIhvg8nZ2oy3ZQP",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+Step: 22
+Tool result: get_map_view: Map view captured. Robot at (-0.17, 2.69), heading 87.1 deg. Distance to destination: 16.02 m.
+
+LLM reasoning: We're still close to the wall. I'll rotate further to the right and try moving forward again.
+Tool call: get_map_view({})

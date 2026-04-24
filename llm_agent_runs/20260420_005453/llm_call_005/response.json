@@ -1,0 +1,12 @@
+{
+  "class": "AIMessage",
+  "content": "Let's check the map to ensure we're on the right path.",
+  "tool_calls": [
+    {
+      "name": "get_map_view",
+      "args": {},
+      "id": "call_AKjJ75J2OGN8aBc29EM5XXuv",
+      "type": "tool_call"
+    }
+  ]
+}

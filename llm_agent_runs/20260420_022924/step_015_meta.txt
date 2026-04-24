@@ -1,0 +1,5 @@
+Step: 15
+Tool result: move_forward: Moved 1.00 m. Now at (9.38, 11.91).
+
+LLM reasoning: Continue moving forward through the corridor towards the destination. Let's proceed.
+Tool call: move_forward({"distance_meters": 1.0})

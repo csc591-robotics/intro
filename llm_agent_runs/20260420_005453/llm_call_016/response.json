@@ -1,0 +1,12 @@
+{
+  "class": "AIMessage",
+  "content": "Let's check the map again to see our proximity to the destination.",
+  "tool_calls": [
+    {
+      "name": "get_map_view",
+      "args": {},
+      "id": "call_k73bLmCAm9Pi2t7KymMahnBI",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "Now that we're aligned with the destination, let's move forward.",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "call_mjPxqHtlS0M8E1E2SaFFXqIG",
+      "type": "tool_call"
+    }
+  ]
+}

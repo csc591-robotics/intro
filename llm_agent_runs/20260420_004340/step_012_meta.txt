@@ -1,0 +1,7 @@
+Step: 12
+Tool result: move_forward: Moved 1.00 m. Now at (9.49, 10.56).
+
+LLM reasoning: The robot is getting closer to the destination. Let's continue moving forward.
+
+I'll move the robot forward again.
+Tool call: move_forward({"distance_meters": 1.0})

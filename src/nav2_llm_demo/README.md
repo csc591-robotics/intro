@@ -45,7 +45,7 @@ To add a new map:
 bash ./run_llm_nav.sh MAP_NAME
 ```
 
-Example:
+For **hand-crafted maps** (those with `sidecar: null`, e.g. `diamond_blocked`), the offset is `(0, 0)` and the YAML coordinates are interpreted directly as map-frame. Gazebo is not started in this flow -- the agent operates on the 2D map only.
 
 ```bash
 bash ./run_llm_nav.sh diamond_blocked
