@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "Let's try moving forward again to see if we can find a clear path.",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "call_Flst88mJVJCvpvBY4ddJzKku",
+      "type": "tool_call"
+    }
+  ]
+}

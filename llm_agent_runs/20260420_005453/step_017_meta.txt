@@ -1,0 +1,5 @@
+Step: 17
+Tool result: move_forward: Timed out after moving 0.05 m of requested 1.00 m.
+
+LLM reasoning: We're very close to the destination. Let's continue moving forward. I'll proceed with another move.
+Tool call: move_forward({"distance_meters": 1.0})

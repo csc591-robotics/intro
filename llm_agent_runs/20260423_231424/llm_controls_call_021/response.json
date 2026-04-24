@@ -1,0 +1,23 @@
+{
+  "llm_call_num": 21,
+  "role": "AIMessage",
+  "content": "The robot is very close to the destination. Let's adjust the heading slightly and move forward.\n\n1. **Rotate** slightly to the right.\n2. **Move forward** a small distance.\n\nLet's proceed.",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": -20
+      },
+      "id": "call_QFBOQhrShyjoQPeGdD4Hb5bU",
+      "type": "tool_call"
+    },
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "call_mN0e1aYsQosC61icCp1ZiISj",
+      "type": "tool_call"
+    }
+  ]
+}

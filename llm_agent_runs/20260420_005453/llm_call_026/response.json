@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "Let's move forward to see if we can reach the destination.",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "call_gZ82rdK5aOVp0ISFvYor38oy",
+      "type": "tool_call"
+    }
+  ]
+}

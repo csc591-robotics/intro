@@ -1,0 +1,7 @@
+Step: 7
+Tool result: get_map_view: Map view captured. Robot at (6.75, 9.22), heading 26.0 deg. Distance to destination: 6.52 m.
+
+LLM reasoning: The robot is making good progress. Let's continue moving forward through the corridor.
+
+I'll move the robot forward again.
+Tool call: get_map_view({})

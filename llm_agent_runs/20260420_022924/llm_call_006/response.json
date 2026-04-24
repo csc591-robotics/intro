@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": -90
+      },
+      "id": "call_stN3taGUqbyfVVGYybUFQtFv",
+      "type": "tool_call"
+    }
+  ]
+}

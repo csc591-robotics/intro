@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "We might need a different approach. Let's rotate more to find a clear path.",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 30
+      },
+      "id": "call_HiDpHxSFdDMrzqTVcGc9FwEL",
+      "type": "tool_call"
+    }
+  ]
+}

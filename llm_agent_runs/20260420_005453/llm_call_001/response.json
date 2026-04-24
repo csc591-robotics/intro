@@ -1,0 +1,12 @@
+{
+  "class": "AIMessage",
+  "content": "",
+  "tool_calls": [
+    {
+      "name": "get_map_view",
+      "args": {},
+      "id": "call_z77wnkdbAmXXK3WJCZnT6ZTt",
+      "type": "tool_call"
+    }
+  ]
+}

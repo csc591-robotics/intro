@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>map_view_debug</name>
+  <version>0.1.0</version>
+  <description>
+    Interactive debug tool that brings up Gazebo + RViz aligned via the
+    world_to_map sidecar (no robot spawned) and renders the LLM's annotated
+    map view from a "2D Pose Estimate" click in RViz, using the exact same
+    render_annotated_map(...) call as nav2_llm_demo's get_map_b64.
+  </description>
+  <maintainer email="akaluri@ncsu.edu">Anirudh, Brennen, Miles</maintainer>
+  <license>MIT-0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>ament_index_python</depend>
+  <depend>launch</depend>
+  <depend>launch_ros</depend>
+
+  <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>nav2_llm_demo</exec_depend>
+  <exec_depend>world_to_map</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "To navigate to the destination, follow these steps:\n\n1. **Rotate**: Turn right to align with the corridor.\n2. **Move Forward**: Proceed through the corridor.\n3. **Rotate**: Turn left to face the destination.\n4. **Move Forward**: Continue towards the destination.\n\nLet's start by rotating right.",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "call_tynPNyIYrSO4a9ddW56neGLB",
+      "type": "tool_call"
+    }
+  ]
+}

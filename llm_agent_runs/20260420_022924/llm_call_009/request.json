@@ -1,0 +1,192 @@
+[
+  {
+    "index": 0,
+    "class": "SystemMessage",
+    "text": "You are controlling a TurtleBot3 robot navigating a 2D occupancy-grid map.\n\nYour task: move the robot from its current position to the **destination** (marked with a green circle on the map).\n\nThe current position is marked with a red dot with an arrow head pointing the direction in which the robot is facing or is oriented\nYou are strictly forbidden to move into the dark areas. So any command that would take you into dark area in order to reach destination isnt allowed.\n\nAvailable tools:\n- get_map_view(): See an annotated top-down map. The image will be shown to you. Red arrow = robot position and heading. Green circle = destination. Blue circle = start. Call this FIRST and after every few moves.\n- move_forward(distance_meters): Drive forward (positive) or backward (negative). Use small steps (0.3-1.0 m).\n- rotate(angle_degrees): Turn in place. Positive = left/CCW, negative = right/CW.\n- get_robot_pose(): Get exact coordinates and heading as JSON.\n- check_goal_reached(): Check if you have arrived.\n\nStrategy:\n1. Call get_map_view() to see the map and your position.\n2. Determine the direction to the destination. Remember avoid the dark areas. You might have to take a longer path to reach the destination.\n3. Rotate to face the destination.\n4. Move forward in small steps, checking the map periodically.\n5. When close, call check_goal_reached() to verify arrival.\n6. Prefer corridors and open paths. If blocked, back up and try another angle.\n\nImportant:\n- The map image uses standard orientation: +X = RIGHT, +Y = UP.\n- Your heading (yaw) is measured counter-clockwise from +X axis.\n- Dark pixels = walls. White = free space. Gray = unknown.\n- Take small steps and check the map often to stay safe.s\n"
+  },
+  {
+    "index": 1,
+    "class": "HumanMessage",
+    "text": "Navigate the robot to the destination.\nSource (start): (3.98, 7.87)\nDestination (goal): (11.51, 13.67)\n\nBegin by calling get_map_view() to see the map."
+  },
+  {
+    "index": 2,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "get_map_view",
+        "args": {},
+        "id": "call_2GX5cCcnSrFu7eTDEY5NsxVI",
+        "type": "tool_call"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "index": 3,
+    "class": "ToolMessage",
+    "text": "Map view captured. Robot at (3.98, 7.87), heading 0.0 deg. Distance to destination: 9.51 m.",
+    "tool_call_id": "call_2GX5cCcnSrFu7eTDEY5NsxVI"
+  },
+  {
+    "index": 4,
+    "class": "HumanMessage",
+    "content_parts": [
+      {
+        "type": "text",
+        "text": "Here is the current map view:"
+      },
+      {
+        "type": "image_url",
+        "saved_as": "request_context_image_00.png"
+      }
+    ]
+  },
+  {
+    "index": 5,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "rotate",
+        "args": {
+          "angle_degrees": 90
+        },
+        "id": "call_tynPNyIYrSO4a9ddW56neGLB",
+        "type": "tool_call"
+      }
+    ],
+    "text": "To navigate to the destination, follow these steps:\n\n1. **Rotate**: Turn right to align with the corridor.\n2. **Move Forward**: Proceed through the corridor.\n3. **Rotate**: Turn left to face the destination.\n4. **Move Forward**: Continue towards the destination.\n\nLet's start by rotating right."
+  },
+  {
+    "index": 6,
+    "class": "ToolMessage",
+    "text": "Rotated 91.1 deg. Heading now 91.1 deg.",
+    "tool_call_id": "call_tynPNyIYrSO4a9ddW56neGLB"
+  },
+  {
+    "index": 7,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "move_forward",
+        "args": {
+          "distance_meters": 1.0
+        },
+        "id": "call_c1eh3AwLr4SUVcbzMivHVGCF",
+        "type": "tool_call"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "index": 8,
+    "class": "ToolMessage",
+    "text": "Moved 1.01 m. Now at (3.79, 8.86).",
+    "tool_call_id": "call_c1eh3AwLr4SUVcbzMivHVGCF"
+  },
+  {
+    "index": 9,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "move_forward",
+        "args": {
+          "distance_meters": 1.0
+        },
+        "id": "call_d8JD5CIccy11juFLMGypEsG2",
+        "type": "tool_call"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "index": 10,
+    "class": "ToolMessage",
+    "text": "Moved 1.00 m. Now at (3.60, 9.85).",
+    "tool_call_id": "call_d8JD5CIccy11juFLMGypEsG2"
+  },
+  {
+    "index": 11,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "move_forward",
+        "args": {
+          "distance_meters": 1.0
+        },
+        "id": "call_Y9laiYu4bU20HLLEO8eXfsk1",
+        "type": "tool_call"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "index": 12,
+    "class": "ToolMessage",
+    "text": "Moved 1.01 m. Now at (3.40, 10.86).",
+    "tool_call_id": "call_Y9laiYu4bU20HLLEO8eXfsk1"
+  },
+  {
+    "index": 13,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "rotate",
+        "args": {
+          "angle_degrees": -90
+        },
+        "id": "call_stN3taGUqbyfVVGYybUFQtFv",
+        "type": "tool_call"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "index": 14,
+    "class": "ToolMessage",
+    "text": "Rotated 91.4 deg. Heading now 9.7 deg.",
+    "tool_call_id": "call_stN3taGUqbyfVVGYybUFQtFv"
+  },
+  {
+    "index": 15,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "move_forward",
+        "args": {
+          "distance_meters": 1.0
+        },
+        "id": "call_kf6eU5at4A5EiuKQNpHaeUTN",
+        "type": "tool_call"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "index": 16,
+    "class": "ToolMessage",
+    "text": "Moved 1.02 m. Now at (4.42, 10.88).",
+    "tool_call_id": "call_kf6eU5at4A5EiuKQNpHaeUTN"
+  },
+  {
+    "index": 17,
+    "class": "AIMessage",
+    "tool_calls": [
+      {
+        "name": "move_forward",
+        "args": {
+          "distance_meters": 1.0
+        },
+        "id": "call_1i1018CNfOYVligSbNWCGbDh",
+        "type": "tool_call"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "index": 18,
+    "class": "ToolMessage",
+    "text": "Moved 1.00 m. Now at (5.43, 10.89).",
+    "tool_call_id": "call_1i1018CNfOYVligSbNWCGbDh"
+  }
+]

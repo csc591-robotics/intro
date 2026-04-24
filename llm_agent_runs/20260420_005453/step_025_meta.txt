@@ -1,0 +1,5 @@
+Step: 25
+Tool result: rotate: Rotated 46.2 deg. Heading now -47.8 deg.
+
+LLM reasoning: We're close but need to adjust our path. Let's rotate left to align more directly with the destination.
+Tool call: rotate({"angle_degrees": 45})

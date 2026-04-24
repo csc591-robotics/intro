@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "We're close to the destination. We need to rotate left to align with the destination and then move forward. Let's rotate first.",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "call_1KTHcLyXQ57MTPF3jPpquJUw",
+      "type": "tool_call"
+    }
+  ]
+}

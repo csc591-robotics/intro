@@ -1,0 +1,5 @@
+Step: 18
+Tool result: rotate: Rotated 91.7 deg. Heading now 8.5 deg.
+
+LLM reasoning: Continue moving forward through the corridor towards the destination. Let's proceed.
+Tool call: rotate({"angle_degrees": -90})

@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "It seems we're still facing an obstacle. Let's rotate a bit more to adjust our path.",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 10
+      },
+      "id": "call_13EJ8dqNou6CHF8EkKqRV6pH",
+      "type": "tool_call"
+    }
+  ]
+}

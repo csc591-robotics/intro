@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 5,
+  "role": "AIMessage",
+  "content": "The robot is progressing well. Let's continue moving forward in small steps to stay on the path.\n\n1. **Move forward** again. \n\nLet's proceed.",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "call_bJtdx4gxd7XsU13vHZyorKVJ",
+      "type": "tool_call"
+    }
+  ]
+}

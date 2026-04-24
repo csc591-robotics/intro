@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 24,
+  "role": "AIMessage",
+  "content": "",
+  "tool_calls": [
+    {
+      "name": "get_map_view",
+      "args": {},
+      "id": "call_0Al7yLyfg7c8CGxIJp1zs1Ec",
+      "type": "tool_call"
+    }
+  ]
+}

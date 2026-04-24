@@ -1,0 +1,5 @@
+Step: 27
+Tool result: rotate: Rotated 31.3 deg. Heading now -68.0 deg.
+
+LLM reasoning: We might still be facing an obstacle. Let's rotate a bit more to adjust our path.
+Tool call: rotate({"angle_degrees": 30})

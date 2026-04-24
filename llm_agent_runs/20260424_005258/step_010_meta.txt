@@ -1,0 +1,4 @@
+Step: 10
+Tool result: get_map_view: Map view captured. Wait for the next human message: it will contain the map image and instructions on what to do next.
+
+Tool call: get_map_view({})

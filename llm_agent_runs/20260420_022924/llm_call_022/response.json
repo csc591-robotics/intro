@@ -1,0 +1,14 @@
+{
+  "class": "AIMessage",
+  "content": "",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "call_A6YHtjTYW4m5IAKJkiXrwfO5",
+      "type": "tool_call"
+    }
+  ]
+}
