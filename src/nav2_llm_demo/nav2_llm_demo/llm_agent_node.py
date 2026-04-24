@@ -22,7 +22,7 @@ import tf2_ros
 # Registers geometry_msgs / PoseStamped converters for Buffer.transform().
 import tf2_geometry_msgs.tf2_geometry_msgs  # noqa: F401
 
-from .llm.llm_agent import build_agent, set_controller
+from .llm import build_agent, set_controller
 
 
 def _yaw_from_quat(qx: float, qy: float, qz: float, qw: float) -> float:

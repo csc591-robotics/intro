@@ -1,0 +1,4 @@
+{
+  "llm_call_num": 2,
+  "error": "Error code: 400 - {'error': {'message': \"Invalid 'messages[3]'. Image URLs are only allowed for messages with role 'user', but this message with role 'tool' contains an image URL.\", 'type': 'invalid_request_error', 'param': 'messages[3]', 'code': 'invalid_value'}}"
+}

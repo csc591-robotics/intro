@@ -16,10 +16,12 @@
 # case (no .world is associated with the map).
 #
 # Usage:
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME>
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME> [--flow 1|2]
 #
 # Examples:
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse              # flow 1 (default)
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 2     # ReAct
+#   LLM_FLOW=2 bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse   # via env
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
 #
 # Env overrides:
@@ -28,16 +30,50 @@
 #   LAUNCH_RVIZ=false     Skip RViz.
 #   USE_SIM_TIME=false    Use wall clock instead of /clock.
 #   TURTLEBOT3_MODEL      burger (default) | waffle | waffle_pi
+#   LLM_FLOW=1|2          Which agent flow to use; --flow CLI arg overrides this.
 # ──────────────────────────────────────────────────────────────────────────
 
 set -eo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <MAP_NAME>" >&2
+  echo "Usage: $0 <MAP_NAME> [--flow 1|2]" >&2
   exit 1
 fi
 
 MAP_NAME_IN="$1"
+shift
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --flow)
+      LLM_FLOW="$2"
+      shift 2
+      ;;
+    --flow=*)
+      LLM_FLOW="${1#*=}"
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2]" >&2
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+LLM_FLOW="${LLM_FLOW:-1}"
+case "${LLM_FLOW}" in
+  1|2) ;;
+  *)
+    echo "ERROR: --flow must be 1 or 2 (got '${LLM_FLOW}')." >&2
+    exit 1
+    ;;
+esac
+export LLM_FLOW
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
@@ -154,7 +190,13 @@ if [[ -n "${GAZEBO_MODEL_PATH:-}" ]]; then
 fi
 echo "  TURTLEBOT3_MODEL      : ${TURTLEBOT3_MODEL}"
 echo "  Launch RViz           : ${LAUNCH_RVIZ}"
-echo "  LLM provider/model    : ${LLM_PROVIDER}/${LLM_MODEL}"
+echo "  LLM flow              : ${LLM_FLOW}  (logs -> intro/llm_agent_runs/flow_${LLM_FLOW}/<timestamp>/)"
+FLOW_PROVIDER_VAR="FLOW${LLM_FLOW}_LLM_PROVIDER"
+FLOW_MODEL_VAR="FLOW${LLM_FLOW}_LLM_MODEL"
+EFFECTIVE_PROVIDER="${!FLOW_PROVIDER_VAR:-${LLM_PROVIDER}}"
+EFFECTIVE_MODEL="${!FLOW_MODEL_VAR:-${LLM_MODEL}}"
+echo "  LLM (global default)  : ${LLM_PROVIDER}/${LLM_MODEL}"
+echo "  LLM (effective flow)  : ${EFFECTIVE_PROVIDER}/${EFFECTIVE_MODEL}"
 if [[ -n "$ENV_FILE" ]]; then
   echo "  .env loaded from      : ${ENV_FILE}"
 fi
@@ -176,6 +218,7 @@ LAUNCH_ARGS=(
   "static_tf_y:=${STATIC_TF_Y}"
   "use_sim_time:=${USE_SIM_TIME}"
   "launch_rviz:=${LAUNCH_RVIZ}"
+  "flow:=${LLM_FLOW}"
 )
 
 if [[ "${HAS_WORLD}" == "1" ]]; then

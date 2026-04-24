@@ -50,6 +50,11 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context)
     launch_rviz = LaunchConfiguration("launch_rviz").perform(context)
     rviz_config = LaunchConfiguration("rviz_config").perform(context).strip()
+    flow = LaunchConfiguration("flow").perform(context).strip() or "1"
+    if flow not in {"1", "2"}:
+        raise RuntimeError(
+            f"flow must be 1 or 2 (got {flow!r})"
+        )
     if not rviz_config:
         rviz_config = default_rviz_config
 
@@ -76,6 +81,8 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
         raise RuntimeError("map_yaml argument is required")
 
     actions: List = []
+
+    actions.append(SetEnvironmentVariable("LLM_FLOW", flow))
 
     agent_node = Node(
         package="nav2_llm_demo",
@@ -224,5 +231,9 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("use_sim_time", default_value="true"),
         DeclareLaunchArgument("launch_rviz", default_value="true"),
         DeclareLaunchArgument("rviz_config", default_value=""),
+        DeclareLaunchArgument("flow", default_value="1",
+                              description="LLM agent flow: 1 = custom loop "
+                                          "(default), 2 = LangGraph "
+                                          "create_react_agent."),
         OpaqueFunction(function=_launch_setup),
     ])

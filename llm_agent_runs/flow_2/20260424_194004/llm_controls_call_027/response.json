@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 27,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (10.74, 9.90) and still moving north through the corridor. The green destination is above. Let me continue north.\", 'type': 'text'}, {'id': 'toolu_01QhF8cHKz51AsGEFtTTSkR2', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 0.5}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "toolu_01QhF8cHKz51AsGEFtTTSkR2",
+      "type": "tool_call"
+    }
+  ]
+}

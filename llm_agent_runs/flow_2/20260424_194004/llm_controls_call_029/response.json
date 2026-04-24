@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 29,
+  "role": "AIMessage",
+  "content": "[{'text': \"I notice the robot's heading seems to have drifted slightly - the arrow appears to be pointing slightly east. I'm at (10.64, 10.40). The green destination is above and slightly to the right. Let me continue moving north.\", 'type': 'text'}, {'id': 'toolu_01Sv8syYAzfJMSRedRmZcd5t', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 0.5}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "toolu_01Sv8syYAzfJMSRedRmZcd5t",
+      "type": "tool_call"
+    }
+  ]
+}

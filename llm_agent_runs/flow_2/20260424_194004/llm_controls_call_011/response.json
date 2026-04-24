@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 11,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (8.06, 7.87) moving east. The green destination is upper-right. I can see there seems to be a vertical corridor somewhere to the right. I need to find a passage going north. Let me continue east.\", 'type': 'text'}, {'id': 'toolu_01HKhhU2A5eMMxoNt8Y1VRGu', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01HKhhU2A5eMMxoNt8Y1VRGu",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 5,
+  "role": "AIMessage",
+  "content": "[{'text': \"Good, I've moved right. I can see the robot is in the middle white corridor. The green destination is in the upper-right area. I need to continue moving right and then find a way up. Let me continue moving east.\", 'type': 'text'}, {'id': 'toolu_01YGKFMtUzEj8s58PQYZEjAa', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01YGKFMtUzEj8s58PQYZEjAa",
+      "type": "tool_call"
+    }
+  ]
+}
