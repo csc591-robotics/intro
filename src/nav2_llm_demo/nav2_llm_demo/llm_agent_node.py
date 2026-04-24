@@ -83,7 +83,7 @@ class LlmAgentNode(Node):
         self.declare_parameter("goal_tolerance_m", 0.5)
         self.declare_parameter("node_reach_tolerance_m", 0.30)
         self.declare_parameter("graph_waypoint_spacing_m", 0.75)
-        self.declare_parameter("anchor_merge_distance_m", 0.75)
+        self.declare_parameter("anchor_merge_distance_m", 0.35)
         self.declare_parameter("max_agent_steps", 240)
         self.declare_parameter("max_replans", 5)
         self.declare_parameter("edge_stall_step_limit", 6)

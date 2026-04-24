@@ -151,12 +151,14 @@ class DeterministicTopologyBuilder:
         robot_radius_m: float = 0.11,
         special_node_connection_limit: int = 3,
         anchor_merge_distance_m: float = 0.75,
+        preserve_junction_nodes: bool = True,
     ) -> None:
         self._occupancy_map = occupancy_map
         self._waypoint_spacing_m = max(0.25, waypoint_spacing_m)
         self._robot_radius_m = robot_radius_m
         self._special_node_connection_limit = max(1, special_node_connection_limit)
         self._anchor_merge_distance_m = max(0.0, anchor_merge_distance_m)
+        self._preserve_junction_nodes = preserve_junction_nodes
         self._edge_counter = 0
         self._waypoint_counter = 0
 
@@ -462,9 +464,14 @@ class DeterministicTopologyBuilder:
         changed = True
         while changed:
             changed = False
+            # Keep at least some intermediate graph structure for planning/debugging.
+            if self._non_special_node_count(graph) <= 3:
+                return
             for node_id in list(graph.nodes.keys()):
                 node = graph.nodes.get(node_id)
                 if node is None or node.node_type in {"start", "goal"}:
+                    continue
+                if self._preserve_junction_nodes and node.node_type == "junction":
                     continue
                 neighbors = self._undirected_neighbors(graph, node_id)
                 if len(neighbors) != 2:
