@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 3,
+  "role": "AIMessage",
+  "content": "[{'text': 'Good, now facing north (~92°). Let me get the situation before moving forward.', 'type': 'text'}, {'id': 'toolu_019f5g8KZWV1PmDESysPWL7N', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_situation', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_situation",
+      "args": {},
+      "id": "toolu_019f5g8KZWV1PmDESysPWL7N",
+      "type": "tool_call"
+    }
+  ]
+}

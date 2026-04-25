@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +40,26 @@ class RobotController(Protocol):
 
     def rotate(self, angle_deg: float, speed: float = 0.5) -> str:
         ...
+
+    def get_latest_scan(self) -> dict[str, Any] | None:
+        """Optional. Return the latest LaserScan as a plain dict so flow tools
+        do not have to import sensor_msgs.
+
+        Expected shape (or ``None`` if no scan has been received yet)::
+
+            {
+              "ranges": [...],          # floats; inf = no return
+              "angle_min": float,       # radians
+              "angle_increment": float, # radians per ray
+              "range_min": float,       # meters; readings below are invalid
+              "range_max": float,       # meters; readings above are invalid
+              "frame_id": str,
+              "stamp_sec": float,
+            }
+
+        flow_1 / flow_2 ignore this; flow_3 calls it from ``get_lidar_summary``.
+        """
+        return None
 
     @property
     def map_yaml_path(self) -> str: ...

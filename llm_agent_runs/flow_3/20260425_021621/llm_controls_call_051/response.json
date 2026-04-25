@@ -1,0 +1,6 @@
+{
+  "llm_call_num": 51,
+  "role": "AIMessage",
+  "content": "Front is clear at 1.57 m with good room to advance. Back_right and front_right are both in caution range (0.82 m and 0.80 m respectively), so avoid sharp right turns. Proceed forward; if a turn becomes necessary, favor left over right.",
+  "tool_calls": []
+}

@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 2,
+  "role": "AIMessage",
+  "content": "[{'text': 'I can see the map. The RED dot (robot) is in the middle corridor, facing right (+X direction). The GREEN destination is in the upper-right area. I need to navigate from the current position to the destination. The robot appears to be in a horizontal corridor. I need to move right and then find a way up to the upper corridor where the destination is.\\n\\nLet me get the exact pose first to better understand the coordinates.', 'type': 'text'}, {'id': 'toolu_019Lbb7rrm9MbXDwjtaXqJp1', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_robot_pose', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_robot_pose",
+      "args": {},
+      "id": "toolu_019Lbb7rrm9MbXDwjtaXqJp1",
+      "type": "tool_call"
+    }
+  ]
+}

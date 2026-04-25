@@ -16,12 +16,13 @@
 # case (no .world is associated with the map).
 #
 # Usage:
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME> [--flow 1|2]
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME> [--flow 1|2|3]
 #
 # Examples:
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse              # flow 1 (default)
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 2     # ReAct
-#   LLM_FLOW=2 bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse   # via env
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 2     # ReAct (image-in-tool)
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 3     # ReAct + LiDAR
+#   LLM_FLOW=3 bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse   # via env
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
 #
 # Env overrides:
@@ -30,13 +31,13 @@
 #   LAUNCH_RVIZ=false     Skip RViz.
 #   USE_SIM_TIME=false    Use wall clock instead of /clock.
 #   TURTLEBOT3_MODEL      burger (default) | waffle | waffle_pi
-#   LLM_FLOW=1|2          Which agent flow to use; --flow CLI arg overrides this.
+#   LLM_FLOW=1|2|3        Which agent flow to use; --flow CLI arg overrides this.
 # ──────────────────────────────────────────────────────────────────────────
 
 set -eo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <MAP_NAME> [--flow 1|2]" >&2
+  echo "Usage: $0 <MAP_NAME> [--flow 1|2|3]" >&2
   exit 1
 fi
 
@@ -54,12 +55,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: $0 <MAP_NAME> [--flow 1|2]" >&2
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3]" >&2
       exit 0
       ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: $0 <MAP_NAME> [--flow 1|2]" >&2
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3]" >&2
       exit 1
       ;;
   esac
@@ -67,9 +68,9 @@ done
 
 LLM_FLOW="${LLM_FLOW:-1}"
 case "${LLM_FLOW}" in
-  1|2) ;;
+  1|2|3) ;;
   *)
-    echo "ERROR: --flow must be 1 or 2 (got '${LLM_FLOW}')." >&2
+    echo "ERROR: --flow must be 1, 2, or 3 (got '${LLM_FLOW}')." >&2
     exit 1
     ;;
 esac

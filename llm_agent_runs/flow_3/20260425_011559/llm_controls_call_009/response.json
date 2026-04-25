@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 9,
+  "role": "AIMessage",
+  "content": "[{'text': \"Still all clear. I'm at (6.01, 7.87) and need to reach (11.51, 13.67). The destination is to the upper-right. I need to find a passage going north (+Y). Looking at the map, the destination appears to be in the upper corridor. I need to find a gap/opening in the wall above me. Let me continue east to find a northward passage.\", 'type': 'text'}, {'id': 'toolu_01XKgN4RxHea7V7DJEYX6HYa', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01XKgN4RxHea7V7DJEYX6HYa",
+      "type": "tool_call"
+    }
+  ]
+}

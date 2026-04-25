@@ -31,6 +31,7 @@ except ImportError:  # pragma: no cover - older langgraph
 from langgraph.prebuilt import create_react_agent
 
 from ..controller import make_run_dir, resolve_llm_config
+from ..message_utils import prune_old_images
 from .logging import PerCallLogger
 from .prompt import SYSTEM_PROMPT
 from .tools import ALL_TOOLS
@@ -140,8 +141,12 @@ class Flow2Agent:
         }
 
         try:
+            # Drop stale base64 images from history before sending. Anthropic
+            # vision input bills each PNG ~1500-2000 tokens; without pruning,
+            # ~30 turns blows past the 30k-tokens-per-minute dev tier limit.
+            pruned = prune_old_images(self._messages, keep_last=1)
             result = self._graph.invoke(
-                {"messages": list(self._messages)},
+                {"messages": pruned},
                 config=config,
             )
             self._messages = list(result.get("messages", self._messages))
@@ -174,6 +179,16 @@ class Flow2Agent:
     # ------------------------------------------------------------------
     # Public properties
     # ------------------------------------------------------------------
+
+    @property
+    def terminated(self) -> bool:
+        """True once the graph has finished (success or unrecoverable error).
+
+        The ROS-side loop polls this and bails out so we don't tight-loop
+        on a cached failure summary (e.g. an Anthropic 429 that the agent
+        already treated as terminal).
+        """
+        return self._completed
 
     @property
     def goal_reached_in_last_step(self) -> bool:

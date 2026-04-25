@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 40,
+  "role": "AIMessage",
+  "content": "[{'text': \"Good - facing east (10.3°), front is CLEAR. The wall to the north (front_left/back_left) is at ~0.83-0.86m. I'm at (10.94, 8.88). The destination is at (11.51, 13.67). \\n\\nI need to go further east to find a vertical passage. Let me move east a bit more.\", 'type': 'text'}, {'id': 'toolu_019VzbvSb79BSkxni6AamaRm', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 0.5}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "toolu_019VzbvSb79BSkxni6AamaRm",
+      "type": "tool_call"
+    }
+  ]
+}

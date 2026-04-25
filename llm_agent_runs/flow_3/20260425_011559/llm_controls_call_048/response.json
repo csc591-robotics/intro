@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 48,
+  "role": "AIMessage",
+  "content": "[{'id': 'toolu_01V42ELxGYTdYynHDcFc6bZS', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_lidar_summary', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_lidar_summary",
+      "args": {},
+      "id": "toolu_01V42ELxGYTdYynHDcFc6bZS",
+      "type": "tool_call"
+    }
+  ]
+}

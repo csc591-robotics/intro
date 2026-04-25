@@ -407,6 +407,13 @@ class VisionNavigationAgent:
     # ------------------------------------------------------------------
 
     @property
+    def terminated(self) -> bool:
+        """flow_1 has no terminal state of its own; each ``step()`` is one
+        LLM round-trip and the loop is expected to keep going. The ROS-side
+        loop only bails on this when an agent self-reports done."""
+        return False
+
+    @property
     def goal_reached_in_last_step(self) -> bool:
         """True if the last few messages contain a GOAL REACHED marker."""
         for msg in reversed(self._messages[-5:]):

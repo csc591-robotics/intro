@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 7,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm continuing along the middle corridor. I need to keep moving right to find a vertical passage that leads up to the upper corridor where the destination is. Let me continue.\", 'type': 'text'}, {'id': 'toolu_01MnNutzxDqQNbQBStaak6HY', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01MnNutzxDqQNbQBStaak6HY",
+      "type": "tool_call"
+    }
+  ]
+}

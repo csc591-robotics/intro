@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 43,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (11.45, 8.87). The destination is at (11.51, 13.67) - I'm almost at the right X coordinate! I need to go north (+Y). The front_left/back_left are CAUTION at ~0.76m (wall to the north). \\n\\nLet me rotate north and try to move through. The wall might have a gap here since I'm almost at the destination's X coordinate.\", 'type': 'text'}, {'id': 'toolu_017dPyNtBAwPTYDURjSWcZry', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': 90}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "toolu_017dPyNtBAwPTYDURjSWcZry",
+      "type": "tool_call"
+    }
+  ]
+}

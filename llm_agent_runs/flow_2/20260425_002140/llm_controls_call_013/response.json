@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 13,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (9.08, 7.87). The destination is at (11.51, 13.67). I can see the green destination is in the upper corridor. Looking at the map, I need to find a vertical passage. The map shows horizontal corridors with black walls between them. I need to look for a gap in the upper wall. Let me continue moving right toward the destination's X coordinate.\", 'type': 'text'}, {'id': 'toolu_01DstuNU86jkd4ZsY5qbBVEj', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01DstuNU86jkd4ZsY5qbBVEj",
+      "type": "tool_call"
+    }
+  ]
+}

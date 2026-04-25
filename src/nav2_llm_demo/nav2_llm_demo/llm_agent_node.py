@@ -2,6 +2,7 @@
 
 The node:
 - Subscribes to /odom for robot position tracking
+- Subscribes to /scan to expose live LiDAR data to flow_3
 - Publishes to /cmd_vel for direct robot control
 - Uses TF2 to get accurate map->base_link transforms
 - Runs a VisionNavigationAgent that sees an annotated map and calls tools
@@ -10,12 +11,14 @@ The node:
 import math
 import threading
 import time
+from typing import Any
 
 from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
+from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 import tf2_ros
 
@@ -45,7 +48,8 @@ class LlmAgentNode(Node):
         self.declare_parameter("dest_yaw", 0.0)
         self.declare_parameter("map_yaml_path", "")
         self.declare_parameter("goal_tolerance_m", 0.5)
-        self.declare_parameter("max_agent_steps", 50)
+        # 0 = unlimited; loop runs until goal reached or rclpy shuts down.
+        self.declare_parameter("max_agent_steps", 0)
         self.declare_parameter("linear_speed", 0.15)
         self.declare_parameter("angular_speed", 0.5)
         self.declare_parameter("status_topic", "/navigation_status")
@@ -68,12 +72,18 @@ class LlmAgentNode(Node):
         self._last_odom_pose: PoseStamped | None = None
         self._logged_tf_fallback = False
 
+        self._scan_lock = threading.Lock()
+        self._latest_scan: dict[str, Any] | None = None
+
         self._cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         status_topic = self._str("status_topic")
         self._status_pub = self.create_publisher(String, status_topic, 10)
 
         self._odom_sub = self.create_subscription(
             Odometry, "/odom", self._odom_cb, 10,
+        )
+        self._scan_sub = self.create_subscription(
+            LaserScan, "/scan", self._scan_cb, 10,
         )
 
         self._tf_buffer = tf2_ros.Buffer()
@@ -279,6 +289,26 @@ class LlmAgentNode(Node):
             self._last_odom_pose = ps
             self._pose_ready = True
 
+    def _scan_cb(self, msg: LaserScan) -> None:
+        """Snapshot the latest LaserScan as a JSON-friendly dict so flow tools
+        can consume it without importing sensor_msgs."""
+        snapshot: dict[str, Any] = {
+            "ranges": list(msg.ranges),
+            "angle_min": float(msg.angle_min),
+            "angle_increment": float(msg.angle_increment),
+            "range_min": float(msg.range_min),
+            "range_max": float(msg.range_max),
+            "frame_id": msg.header.frame_id,
+            "stamp_sec": msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
+        }
+        with self._scan_lock:
+            self._latest_scan = snapshot
+
+    def get_latest_scan(self) -> dict[str, Any] | None:
+        """RobotController hook: return the latest LaserScan dict, or None."""
+        with self._scan_lock:
+            return self._latest_scan
+
     def _publish_status(self, message: str) -> None:
         msg = String()
         msg.data = message
@@ -325,15 +355,19 @@ class LlmAgentNode(Node):
             self._dest_x, self._dest_y,
         )
 
+        # max_agent_steps == 0 -> unlimited (loop until goal or shutdown).
         max_steps = self._int("max_agent_steps")
         goal_tol = self._float("goal_tolerance_m")
         logged_run_dir = False
 
-        for step in range(1, max_steps + 1):
-            if not rclpy.ok():
+        step = 0
+        while rclpy.ok():
+            step += 1
+            if max_steps > 0 and step > max_steps:
                 break
 
-            self._publish_status(f"Agent step {step}/{max_steps}")
+            cap = str(max_steps) if max_steps > 0 else "unlimited"
+            self._publish_status(f"Agent step {step}/{cap}")
 
             try:
                 summary = agent.step()
@@ -361,12 +395,30 @@ class LlmAgentNode(Node):
                 )
                 return
 
+            # ReAct flows finish a whole episode in a single step() (the
+            # graph runs LLM<->tool internally until it stops). After that
+            # the agent caches its final summary and returns it instantly,
+            # so without this bail the ROS while-loop tight-spins forever
+            # on the cached string (e.g. when the LLM hits a 429).
+            if getattr(agent, "terminated", False):
+                self._publish_status(
+                    f"Agent terminated after {step} steps. "
+                    f"Final: {summary}"
+                )
+                return
+
         x, y, _ = self.get_pose()
         dist = math.hypot(self._dest_x - x, self._dest_y - y)
-        self._publish_status(
-            f"Agent exhausted {max_steps} steps. "
-            f"Distance to goal: {dist:.2f} m."
-        )
+        if max_steps > 0:
+            self._publish_status(
+                f"Agent exhausted {max_steps} steps. "
+                f"Distance to goal: {dist:.2f} m."
+            )
+        else:
+            self._publish_status(
+                f"Agent loop ended after {step} steps. "
+                f"Distance to goal: {dist:.2f} m."
+            )
 
 
 def main(args: list[str] | None = None) -> None:

@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 14,
+  "role": "AIMessage",
+  "content": "[{'text': 'Now facing east (~1°). Let me get the situation and move right along the corridor.', 'type': 'text'}, {'id': 'toolu_01Vg1qa5uvanPYr4dVVGnpvd', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_situation', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_situation",
+      "args": {},
+      "id": "toolu_01Vg1qa5uvanPYr4dVVGnpvd",
+      "type": "tool_call"
+    }
+  ]
+}

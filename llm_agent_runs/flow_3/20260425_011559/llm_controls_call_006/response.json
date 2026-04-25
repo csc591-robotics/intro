@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 6,
+  "role": "AIMessage",
+  "content": "[{'text': \"All clear. I'm moving east along the corridor. The destination is to the upper-right. I need to continue east and then find a path north. Let me keep moving forward.\", 'type': 'text'}, {'id': 'toolu_01SShA8NsGcpbUQGSv3ZoYQH', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01SShA8NsGcpbUQGSv3ZoYQH",
+      "type": "tool_call"
+    }
+  ]
+}

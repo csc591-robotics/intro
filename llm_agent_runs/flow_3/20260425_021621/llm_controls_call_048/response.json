@@ -1,0 +1,6 @@
+{
+  "llm_call_num": 48,
+  "role": "AIMessage",
+  "content": "Front is clear at 1.63 m with good room to advance. All other sectors are clear or only mildly close. Proceed forward; front_right at 1.13 m is adequate but monitor it if turning right. No immediate hazards.",
+  "tool_calls": []
+}

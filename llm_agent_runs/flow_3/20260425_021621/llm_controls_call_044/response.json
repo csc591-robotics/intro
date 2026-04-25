@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 44,
+  "role": "AIMessage",
+  "content": "[{'text': 'Now facing east (~7°). Let me get the situation to confirm.', 'type': 'text'}, {'id': 'toolu_0168Fw8rY2frRND5CxoSwk5B', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_situation', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_situation",
+      "args": {},
+      "id": "toolu_0168Fw8rY2frRND5CxoSwk5B",
+      "type": "tool_call"
+    }
+  ]
+}

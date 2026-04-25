@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 17,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (11.12, 7.87) and I can see the robot is now roughly below the green destination. The destination is at (11.51, 13.67) - I need to go UP (positive Y direction). I need to find a passage going upward. Looking at the map, I can see there's a gap in the upper wall of the middle corridor. Let me try rotating to face upward (90° CCW) and see if I can move up.\", 'type': 'text'}, {'id': 'toolu_01QyUXRacgPsgRvW9BcTeVup', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': 90}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "toolu_01QyUXRacgPsgRvW9BcTeVup",
+      "type": "tool_call"
+    }
+  ]
+}

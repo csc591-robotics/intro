@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 25,
+  "role": "AIMessage",
+  "content": "[{'text': \"The robot is moving upward through what appears to be a vertical passage. I'm at (10.77, 9.36) and the destination is at (11.51, 13.67). Let me continue moving upward.\", 'type': 'text'}, {'id': 'toolu_01BjXVvLAVXA6jiCBe7ng95y', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 0.5}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "toolu_01BjXVvLAVXA6jiCBe7ng95y",
+      "type": "tool_call"
+    }
+  ]
+}

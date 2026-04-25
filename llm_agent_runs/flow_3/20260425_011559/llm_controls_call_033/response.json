@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 33,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (10.92, 8.88). The front is CLEAR (inf) and front_left/back_left are CAUTION at ~0.83m (the wall to the north). The destination is at (11.51, 13.67). \\n\\nI need to go north. The wall to the north is about 0.83m away. Let me try rotating north and see if there's a passage. Let me rotate left (CCW) 90° to face north.\", 'type': 'text'}, {'id': 'toolu_017MAUHUFwiZmuJkE4bzYrG8', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': 90}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "toolu_017MAUHUFwiZmuJkE4bzYrG8",
+      "type": "tool_call"
+    }
+  ]
+}
