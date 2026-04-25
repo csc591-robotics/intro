@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 35,
+  "role": "AIMessage",
+  "content": "[{'id': 'toolu_013K6ampY6NB4n1dPpbjPbhM', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': -20}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": -20
+      },
+      "id": "toolu_013K6ampY6NB4n1dPpbjPbhM",
+      "type": "tool_call"
+    }
+  ]
+}

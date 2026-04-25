@@ -106,17 +106,21 @@ def get_robot_pose() -> str:
     })
 
 
+_GOAL_THRESHOLD_M = 0.3  # ~robot footprint; matches flow_3 / flow_4 / flow_5 / node default
+
+
 @tool
 def check_goal_reached() -> str:
     """Check whether the robot has arrived at the destination.
 
-    Returns a string starting with ``GOAL REACHED`` when within 0.5 m of
-    the destination, otherwise ``NOT_REACHED`` plus the remaining distance.
+    Returns a string starting with ``GOAL REACHED`` when within
+    ``_GOAL_THRESHOLD_M`` meters of the destination, otherwise
+    ``NOT_REACHED`` plus the remaining distance.
     """
     ctrl = get_controller()
     x, y, _ = ctrl.get_pose()
     dist = math.hypot(ctrl.dest_x - x, ctrl.dest_y - y)
-    if dist < 0.5:
+    if dist < _GOAL_THRESHOLD_M:
         return (
             f"GOAL REACHED - {dist:.2f} meters from goal. "
             "Navigation complete!"

@@ -40,7 +40,10 @@ from .prompt import FOLLOWER_SYSTEM_PROMPT
 from .situation import build_situation_message
 
 
-GOAL_REACHED_THRESHOLD_M = 1.0
+# Strict: ~robot footprint. Robot must basically be on top of the destination.
+GOAL_REACHED_THRESHOLD_M = 0.3
+# Looser than the goal threshold so the robot keeps making progress along the
+# planned line and only has to get pixel-close at the very end.
 WAYPOINT_ADVANCE_THRESHOLD_M = 0.5
 
 _DECIDE_TOOLS = [move_forward, rotate]

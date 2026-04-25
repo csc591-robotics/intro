@@ -47,7 +47,8 @@ class LlmAgentNode(Node):
         self.declare_parameter("dest_y", 0.0)
         self.declare_parameter("dest_yaw", 0.0)
         self.declare_parameter("map_yaml_path", "")
-        self.declare_parameter("goal_tolerance_m", 0.5)
+        # Strict goal radius: ~robot footprint (override per-launch if needed).
+        self.declare_parameter("goal_tolerance_m", 0.3)
         # 0 = unlimited; loop runs until goal reached or rclpy shuts down.
         self.declare_parameter("max_agent_steps", 0)
         self.declare_parameter("linear_speed", 0.15)

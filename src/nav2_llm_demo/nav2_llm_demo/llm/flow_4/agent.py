@@ -46,7 +46,8 @@ from .prompt import DECIDE_SYSTEM_PROMPT
 from .situation import build_situation_message
 
 
-GOAL_REACHED_THRESHOLD_M = 1.0
+# Strict: ~robot footprint. Robot must basically be on top of the destination.
+GOAL_REACHED_THRESHOLD_M = 0.3
 
 
 _DECIDE_TOOLS = [move_forward, rotate]

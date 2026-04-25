@@ -284,7 +284,8 @@ class VisionNavigationAgent:
         if name == "check_goal_reached":
             x, y, _ = ctrl.get_pose()
             dist = math.hypot(ctrl.dest_x - x, ctrl.dest_y - y)
-            if dist < 0.5:
+            # Strict: ~robot footprint (matches flow_2-5 + node default).
+            if dist < 0.3:
                 return (
                     f"GOAL REACHED - {dist:.2f} meters from goal. "
                     "Navigation complete!",
