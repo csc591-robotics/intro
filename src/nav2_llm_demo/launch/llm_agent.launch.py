@@ -51,9 +51,9 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
     launch_rviz = LaunchConfiguration("launch_rviz").perform(context)
     rviz_config = LaunchConfiguration("rviz_config").perform(context).strip()
     flow = LaunchConfiguration("flow").perform(context).strip() or "1"
-    if flow not in {"1", "2", "3"}:
+    if flow not in {"1", "2", "3", "4", "5"}:
         raise RuntimeError(
-            f"flow must be 1, 2, or 3 (got {flow!r})"
+            f"flow must be 1, 2, 3, 4, or 5 (got {flow!r})"
         )
     if not rviz_config:
         rviz_config = default_rviz_config
@@ -235,6 +235,10 @@ def generate_launch_description() -> LaunchDescription:
                               description="LLM agent flow: 1 = custom loop "
                                           "(default), 2 = LangGraph "
                                           "create_react_agent, 3 = same "
-                                          "as 2 + LiDAR summary tool."),
+                                          "as 2 + LiDAR summary tool, "
+                                          "4 = fixed gather/decide/execute/"
+                                          "check graph (no ReAct freedom), "
+                                          "5 = A* path planner + LLM "
+                                          "follower (most reliable)."),
         OpaqueFunction(function=_launch_setup),
     ])

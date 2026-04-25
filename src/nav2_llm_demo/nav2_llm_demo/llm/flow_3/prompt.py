@@ -114,4 +114,21 @@ IMPORTANT TONE / STYLE:
 """
 
 
-__all__ = ["SYSTEM_PROMPT"]
+REMINDER_TEXT = (
+    "[history-pruned reminder]\n"
+    "Earlier turns were dropped to save tokens. The same rules still apply:\n"
+    "(R1) BLACK pixels in the map are FORBIDDEN. Never enter or touch them.\n"
+    "(R2) If the RED dot is on a BLACK region, your next action MUST be "
+    "rotate(180), then a small move_forward, then re-check.\n"
+    "(R3) Rotation is relative to the RED ARROW on the dot. "
+    "rotate(positive deg) tilts the arrow CCW (left); rotate(negative deg) "
+    "tilts it CW (right). To face the GREEN destination, rotate the arrow "
+    "until it points at the green marker.\n"
+    "(R4) LiDAR is reinforcement only; the map is the authority.\n"
+    "PREFERRED tool: get_situation() returns map + LiDAR safety read in "
+    "one call. Use it before every move. Continue navigating toward the "
+    "green destination from your CURRENT position."
+)
+
+
+__all__ = ["SYSTEM_PROMPT", "REMINDER_TEXT"]

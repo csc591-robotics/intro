@@ -65,4 +65,18 @@ Important:
 """
 
 
-__all__ = ["SYSTEM_PROMPT"]
+REMINDER_TEXT = (
+    "[history-pruned reminder]\n"
+    "Earlier turns were dropped to save tokens. The same rules still apply:\n"
+    "- BLACK pixels are obstacles. NEVER drive into them.\n"
+    "- The RED dot is the robot, the small RED arrow shows its heading.\n"
+    "- Call get_map_view() before every move_forward / rotate so you see "
+    "your latest position.\n"
+    "- rotate(positive deg) = left/CCW (arrow tips CCW on the image); "
+    "rotate(negative deg) = right/CW.\n"
+    "- Continue navigating toward the GREEN destination from your CURRENT "
+    "position."
+)
+
+
+__all__ = ["SYSTEM_PROMPT", "REMINDER_TEXT"]

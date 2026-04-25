@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 25,
+  "role": "AIMessage",
+  "content": "[{'text': \"At (11.12, 7.88). I'm now almost directly below the green destination (11.51, 13.67). The green marker is in the upper corridor. I need to find the passage going north. Looking at the map image carefully, I can see there's a small gap in the black wall between the upper and middle corridors near the right side (around pixel x≈320, y≈130). \\n\\nI need to turn **left (north/CCW)** to face upward and look for the passage. Let me rotate 90° left (CCW) to face north.\", 'type': 'text'}, {'id': 'toolu_01J4uBvaaSy2yArKKndmuxsy', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': 90}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "toolu_01J4uBvaaSy2yArKKndmuxsy",
+      "type": "tool_call"
+    }
+  ]
+}

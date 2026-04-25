@@ -1,0 +1,6 @@
+{
+  "llm_call_num": 33,
+  "role": "AIMessage",
+  "content": "Front is at 0.82 m in CAUTION—passable but tight; do not move forward aggressively. Front-left and front-right are both in CAUTION (1.05 m and 0.84 m respectively); all other sectors are clear. Proceed forward slowly if the goal is ahead, or rotate left toward the slightly more open front-left sector (1.05 m) if you need to maneuver. Watch the front-right side at 0.84 m if turning right.",
+  "tool_calls": []
+}

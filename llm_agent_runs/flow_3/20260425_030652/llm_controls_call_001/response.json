@@ -1,0 +1,19 @@
+{
+  "llm_call_num": 1,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'll start by getting both the map view and LiDAR summary simultaneously to assess the situation before making any decisions.\", 'type': 'text'}, {'id': 'toolu_014CNWSsc4Zf2EVWsZHSc7RM', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_map_view', 'type': 'tool_use'}, {'id': 'toolu_013HJyppeoKjSrTdGXiP2ewx', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_lidar_summary', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_map_view",
+      "args": {},
+      "id": "toolu_014CNWSsc4Zf2EVWsZHSc7RM",
+      "type": "tool_call"
+    },
+    {
+      "name": "get_lidar_summary",
+      "args": {},
+      "id": "toolu_013HJyppeoKjSrTdGXiP2ewx",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -31,9 +31,9 @@ except ImportError:  # pragma: no cover - older langgraph
 from langgraph.prebuilt import create_react_agent
 
 from ..controller import make_run_dir, resolve_llm_config
-from ..message_utils import prune_old_images
+from ..message_utils import compact_history, prune_old_images
 from .logging import PerCallLogger
-from .prompt import SYSTEM_PROMPT
+from .prompt import REMINDER_TEXT, SYSTEM_PROMPT
 from .tools import ALL_TOOLS
 
 
@@ -141,10 +141,20 @@ class Flow2Agent:
         }
 
         try:
-            # Drop stale base64 images from history before sending. Anthropic
-            # vision input bills each PNG ~1500-2000 tokens; without pruning,
-            # ~30 turns blows past the 30k-tokens-per-minute dev tier limit.
-            pruned = prune_old_images(self._messages, keep_last=1)
+            # Two-stage trim before sending:
+            # 1. compact_history drops most of the middle of the conversation,
+            #    keeping the initial goal message + last K rounds, with a
+            #    reminder injected so the safety rules stay visible.
+            # 2. prune_old_images replaces any remaining stale base64 PNGs
+            #    with a tiny text placeholder.
+            # Without these the conversation balloons past Anthropic's
+            # 30k-tokens-per-minute dev tier on the very first call.
+            compacted = compact_history(
+                self._messages,
+                keep_rounds=4,
+                reminder_text=REMINDER_TEXT,
+            )
+            pruned = prune_old_images(compacted, keep_last=1)
             result = self._graph.invoke(
                 {"messages": pruned},
                 config=config,
