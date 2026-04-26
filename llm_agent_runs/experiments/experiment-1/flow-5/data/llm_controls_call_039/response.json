@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 39,
+  "role": "AIMessage",
+  "content": "[{'id': 'toolu_012LBD4yhy4secMWEAfmkXbv', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 0.59}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.59
+      },
+      "id": "toolu_012LBD4yhy4secMWEAfmkXbv",
+      "type": "tool_call"
+    }
+  ]
+}

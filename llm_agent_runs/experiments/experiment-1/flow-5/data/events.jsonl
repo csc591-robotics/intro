@@ -1,0 +1,218 @@
+{"time_sec": 0.03, "event": "run_started"}
+{"time_sec": 6.541, "event": "odometry_ready", "source_x": 3.981274, "source_y": 7.866986, "dest_x": 11.512874, "dest_y": 13.666186}
+{"time_sec": 7.296, "event": "agent_step_started", "step": 1}
+{"time_sec": 8.641, "event": "tool_started", "action_id": 1, "agent_step": 1, "tool": "move_forward", "requested_value": 0.6, "x": 3.9811253633663677, "y": 7.866716773056153, "yaw": 0.00015949965589872957}
+{"time_sec": 12.784, "event": "tool_finished", "action_id": 1, "tool": "move_forward", "actual_value": 0.6022816014466645, "result": "Moved 0.60 m. Now at (4.58, 7.87).", "x": 4.58340696305805, "y": 7.8667627511669735, "yaw": 6.586931218663053e-05}
+{"time_sec": 12.785, "event": "agent_step_finished", "step": 1, "summary": "cycle 1 (target 3/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 9.04 m"}
+{"time_sec": 12.786, "event": "goal_check", "step": 1, "distance_to_goal_m": 9.036084519036443, "threshold_m": 0.3, "reached": false}
+{"time_sec": 12.787, "event": "agent_step_started", "step": 2}
+{"time_sec": 14.281, "event": "tool_started", "action_id": 2, "agent_step": 2, "tool": "move_forward", "requested_value": 0.59, "x": 4.5979449335372715, "y": 7.866763449318643, "yaw": 0.0001767857364475874}
+{"time_sec": 18.42, "event": "tool_finished", "action_id": 2, "tool": "move_forward", "actual_value": 0.6027470718092317, "result": "Moved 0.60 m. Now at (5.20, 7.87).", "x": 5.200691998583125, "y": 7.866853744463856, "yaw": 0.0001781027077354198}
+{"time_sec": 18.422, "event": "agent_step_finished", "step": 2, "summary": "cycle 2 (target 4/25): move_forward({\"distance_meters\": 0.59}) -> distance to goal 8.57 m"}
+{"time_sec": 18.423, "event": "goal_check", "step": 2, "distance_to_goal_m": 8.571808224004611, "threshold_m": 0.3, "reached": false}
+{"time_sec": 18.424, "event": "agent_step_started", "step": 3}
+{"time_sec": 19.752, "event": "tool_started", "action_id": 3, "agent_step": 3, "tool": "rotate", "requested_value": 22.0, "x": 5.214907492785123, "y": 7.866857051296481, "yaw": 0.0002494949794573695}
+{"time_sec": 21.028, "event": "tool_finished", "action_id": 3, "tool": "rotate", "actual_value": 22.331270882963008, "result": "Rotated 22.3 deg. Heading now 22.3 deg.", "x": 5.232719303676851, "y": 7.867317520266205, "yaw": 0.39000369804190316}
+{"time_sec": 21.029, "event": "agent_step_finished", "step": 3, "summary": "cycle 3 (target 4/25): rotate({\"angle_degrees\": 22}) -> distance to goal 8.55 m"}
+{"time_sec": 21.03, "event": "goal_check", "step": 3, "distance_to_goal_m": 8.547936514446036, "threshold_m": 0.3, "reached": false}
+{"time_sec": 21.03, "event": "agent_step_started", "step": 4}
+{"time_sec": 22.244, "event": "tool_started", "action_id": 4, "agent_step": 4, "tool": "move_forward", "requested_value": 0.53, "x": 5.228065385577803, "y": 7.86622617219996, "yaw": 0.51535147442852}
+{"time_sec": 25.854, "event": "tool_finished", "action_id": 4, "tool": "move_forward", "actual_value": 0.5306398782250924, "result": "Moved 0.53 m. Now at (5.69, 8.14).", "x": 5.685586707926883, "y": 8.135025204859474, "yaw": 0.5312661844815539}
+{"time_sec": 25.855, "event": "agent_step_finished", "step": 4, "summary": "cycle 4 (target 5/25): move_forward({\"distance_meters\": 0.53}) -> distance to goal 8.03 m"}
+{"time_sec": 25.856, "event": "goal_check", "step": 4, "distance_to_goal_m": 8.034364749378534, "threshold_m": 0.3, "reached": false}
+{"time_sec": 25.857, "event": "agent_step_started", "step": 5}
+{"time_sec": 26.838, "event": "tool_started", "action_id": 5, "agent_step": 5, "tool": "rotate", "requested_value": -31.0, "x": 5.698342521174935, "y": 8.14252048342113, "yaw": 0.5308971066367513}
+{"time_sec": 28.178, "event": "tool_finished", "action_id": 5, "tool": "rotate", "actual_value": -31.186315389070934, "result": "Rotated 31.2 deg. Heading now -0.8 deg.", "x": 5.692243116068347, "y": 8.140349242709235, "yaw": -0.013163113604519286}
+{"time_sec": 28.179, "event": "agent_step_finished", "step": 5, "summary": "cycle 5 (target 5/25): rotate({\"angle_degrees\": -31}) -> distance to goal 8.03 m"}
+{"time_sec": 28.179, "event": "goal_check", "step": 5, "distance_to_goal_m": 8.02587165080558, "threshold_m": 0.3, "reached": false}
+{"time_sec": 28.18, "event": "agent_step_started", "step": 6}
+{"time_sec": 29.357, "event": "tool_started", "action_id": 6, "agent_step": 6, "tool": "move_forward", "requested_value": 0.6, "x": 5.701184533863228, "y": 8.140351112839502, "yaw": -0.19357499356524985}
+{"time_sec": 33.475, "event": "tool_finished", "action_id": 6, "tool": "move_forward", "actual_value": 0.6019649624667603, "result": "Moved 0.60 m. Now at (6.29, 8.02).", "x": 6.291479392319676, "y": 8.022394357553974, "yaw": -0.19817921138695893}
+{"time_sec": 33.476, "event": "agent_step_finished", "step": 6, "summary": "cycle 6 (target 6/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 7.69 m"}
+{"time_sec": 33.477, "event": "goal_check", "step": 6, "distance_to_goal_m": 7.688650450661466, "threshold_m": 0.3, "reached": false}
+{"time_sec": 33.478, "event": "agent_step_started", "step": 7}
+{"time_sec": 34.594, "event": "tool_started", "action_id": 7, "agent_step": 7, "tool": "rotate", "requested_value": 21.0, "x": 6.306002342430322, "y": 8.019434530104775, "yaw": -0.19921556296696633}
+{"time_sec": 35.686, "event": "tool_finished", "action_id": 7, "tool": "rotate", "actual_value": 23.092813670165473, "result": "Rotated 23.1 deg. Heading now 11.7 deg.", "x": 6.313808312406671, "y": 8.019494314451883, "yaw": 0.203830069126977}
+{"time_sec": 35.687, "event": "agent_step_finished", "step": 7, "summary": "cycle 7 (target 6/25): rotate({\"angle_degrees\": 21}) -> distance to goal 7.68 m"}
+{"time_sec": 35.687, "event": "goal_check", "step": 7, "distance_to_goal_m": 7.675637498967009, "threshold_m": 0.3, "reached": false}
+{"time_sec": 35.688, "event": "agent_step_started", "step": 8}
+{"time_sec": 36.855, "event": "tool_started", "action_id": 8, "agent_step": 8, "tool": "move_forward", "requested_value": 0.6, "x": 6.313602995024145, "y": 8.018452293895706, "yaw": 0.3424783541020052}
+{"time_sec": 41.008, "event": "tool_finished", "action_id": 8, "tool": "move_forward", "actual_value": 0.6072352486690257, "result": "Moved 0.61 m. Now at (6.88, 8.23).", "x": 6.883848803250272, "y": 8.227149120480743, "yaw": 0.3505259958437651}
+{"time_sec": 41.01, "event": "agent_step_finished", "step": 8, "summary": "cycle 8 (target 7/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 7.14 m"}
+{"time_sec": 41.01, "event": "goal_check", "step": 8, "distance_to_goal_m": 7.142198292466714, "threshold_m": 0.3, "reached": false}
+{"time_sec": 41.011, "event": "agent_step_started", "step": 9}
+{"time_sec": 42.225, "event": "tool_started", "action_id": 9, "agent_step": 9, "tool": "rotate", "requested_value": -29.0, "x": 6.8978535733882715, "y": 8.232266195061431, "yaw": 0.35074333205442393}
+{"time_sec": 43.613, "event": "tool_finished", "action_id": 9, "tool": "rotate", "actual_value": -30.97728482019579, "result": "Rotated 31.0 deg. Heading now -10.9 deg.", "x": 6.890788303505519, "y": 8.231101064759681, "yaw": -0.18991228138605232}
+{"time_sec": 43.614, "event": "agent_step_finished", "step": 9, "summary": "cycle 9 (target 7/25): rotate({\"angle_degrees\": -29}) -> distance to goal 7.13 m"}
+{"time_sec": 43.615, "event": "goal_check", "step": 9, "distance_to_goal_m": 7.134691614850296, "threshold_m": 0.3, "reached": false}
+{"time_sec": 43.615, "event": "agent_step_started", "step": 10}
+{"time_sec": 44.966, "event": "tool_started", "action_id": 10, "agent_step": 10, "tool": "move_forward", "requested_value": 0.6, "x": 6.896055276440662, "y": 8.230635932742011, "yaw": -0.32453085894752715}
+{"time_sec": 49.163, "event": "tool_finished", "action_id": 10, "tool": "move_forward", "actual_value": 0.6070167528054332, "result": "Moved 0.61 m. Now at (7.47, 8.03).", "x": 7.470074114171697, "y": 8.033223389785988, "yaw": -0.33121197761856064}
+{"time_sec": 49.164, "event": "agent_step_finished", "step": 10, "summary": "cycle 10 (target 8/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 6.93 m"}
+{"time_sec": 49.165, "event": "goal_check", "step": 10, "distance_to_goal_m": 6.933577625217907, "threshold_m": 0.3, "reached": false}
+{"time_sec": 49.166, "event": "agent_step_started", "step": 11}
+{"time_sec": 50.688, "event": "tool_started", "action_id": 11, "agent_step": 11, "tool": "rotate", "requested_value": 27.0, "x": 7.483737214219071, "y": 8.028439252364356, "yaw": -0.329701906037737}
+{"time_sec": 52.09, "event": "tool_finished", "action_id": 11, "tool": "rotate", "actual_value": 28.335861520062835, "result": "Rotated 28.3 deg. Heading now 9.4 deg.", "x": 7.495425249161862, "y": 8.026993489304104, "yaw": 0.16485217387652465}
+{"time_sec": 52.091, "event": "agent_step_finished", "step": 11, "summary": "cycle 11 (target 8/25): rotate({\"angle_degrees\": 27}) -> distance to goal 6.92 m"}
+{"time_sec": 52.092, "event": "goal_check", "step": 11, "distance_to_goal_m": 6.923899669860879, "threshold_m": 0.3, "reached": false}
+{"time_sec": 52.093, "event": "agent_step_started", "step": 12}
+{"time_sec": 53.583, "event": "tool_started", "action_id": 12, "agent_step": 12, "tool": "move_forward", "requested_value": 0.6, "x": 7.491326600654672, "y": 8.026961705490448, "yaw": 0.2897747321050419}
+{"time_sec": 57.747, "event": "tool_finished", "action_id": 12, "tool": "move_forward", "actual_value": 0.602325469120039, "result": "Moved 0.60 m. Now at (8.07, 8.20).", "x": 8.06890580017193, "y": 8.197836627687003, "yaw": 0.2877068683789698}
+{"time_sec": 57.75, "event": "agent_step_finished", "step": 12, "summary": "cycle 12 (target 9/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 6.46 m"}
+{"time_sec": 57.751, "event": "goal_check", "step": 12, "distance_to_goal_m": 6.462488825452849, "threshold_m": 0.3, "reached": false}
+{"time_sec": 57.752, "event": "agent_step_started", "step": 13}
+{"time_sec": 59.275, "event": "tool_started", "action_id": 13, "agent_step": 13, "tool": "rotate", "requested_value": -23.0, "x": 8.08271582339675, "y": 8.201919197516686, "yaw": 0.2843141300961014}
+{"time_sec": 60.56, "event": "tool_finished", "action_id": 13, "tool": "rotate", "actual_value": -24.70643265772519, "result": "Rotated 24.7 deg. Heading now -8.4 deg.", "x": 8.091199283968708, "y": 8.199910221369997, "yaw": -0.14689446620345642}
+{"time_sec": 60.561, "event": "agent_step_finished", "step": 13, "summary": "cycle 13 (target 9/25): rotate({\"angle_degrees\": -23}) -> distance to goal 6.45 m"}
+{"time_sec": 60.561, "event": "goal_check", "step": 13, "distance_to_goal_m": 6.448878100132213, "threshold_m": 0.3, "reached": false}
+{"time_sec": 60.562, "event": "agent_step_started", "step": 14}
+{"time_sec": 70.011, "event": "tool_started", "action_id": 14, "agent_step": 14, "tool": "move_forward", "requested_value": 0.6, "x": 8.095095942003066, "y": 8.200305176332217, "yaw": -0.28986261537533486}
+{"time_sec": 74.239, "event": "tool_finished", "action_id": 14, "tool": "move_forward", "actual_value": 0.6078827916615461, "result": "Moved 0.61 m. Now at (8.68, 8.03).", "x": 8.67754180354953, "y": 8.0262985478216, "yaw": -0.2903254599776177}
+{"time_sec": 74.243, "event": "agent_step_finished", "step": 14, "summary": "cycle 14 (target 10/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 6.31 m"}
+{"time_sec": 74.243, "event": "goal_check", "step": 14, "distance_to_goal_m": 6.311596294232566, "threshold_m": 0.3, "reached": false}
+{"time_sec": 74.244, "event": "agent_step_started", "step": 15}
+{"time_sec": 75.831, "event": "tool_started", "action_id": 15, "agent_step": 15, "tool": "rotate", "requested_value": 25.0, "x": 8.691461908893366, "y": 8.02215195122384, "yaw": -0.289952741890966}
+{"time_sec": 77.045, "event": "tool_finished", "action_id": 15, "tool": "rotate", "actual_value": 26.99347676693092, "result": "Rotated 27.0 deg. Heading now 10.4 deg.", "x": 8.69979777122023, "y": 8.021845055393278, "yaw": 0.1811723042525726}
+{"time_sec": 77.047, "event": "agent_step_finished", "step": 15, "summary": "cycle 15 (target 10/25): rotate({\"angle_degrees\": 25}) -> distance to goal 6.31 m"}
+{"time_sec": 77.047, "event": "goal_check", "step": 15, "distance_to_goal_m": 6.306503196533695, "threshold_m": 0.3, "reached": false}
+{"time_sec": 77.048, "event": "agent_step_started", "step": 16}
+{"time_sec": 78.123, "event": "tool_started", "action_id": 16, "agent_step": 16, "tool": "move_forward", "requested_value": 0.6, "x": 8.696806441705256, "y": 8.021338483839843, "yaw": 0.29318844048797443}
+{"time_sec": 82.26, "event": "tool_finished", "action_id": 16, "tool": "move_forward", "actual_value": 0.6074961895749911, "result": "Moved 0.61 m. Now at (9.28, 8.20).", "x": 9.27704091344183, "y": 8.201281747555694, "yaw": 0.3005309591847311}
+{"time_sec": 82.264, "event": "agent_step_finished", "step": 16, "summary": "cycle 16 (target 11/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 5.90 m"}
+{"time_sec": 82.264, "event": "goal_check", "step": 16, "distance_to_goal_m": 5.904585343555642, "threshold_m": 0.3, "reached": false}
+{"time_sec": 82.266, "event": "agent_step_started", "step": 17}
+{"time_sec": 83.714, "event": "tool_started", "action_id": 17, "agent_step": 17, "tool": "rotate", "requested_value": -24.0, "x": 9.291265941867229, "y": 8.205686986657074, "yaw": 0.3019970973506831}
+{"time_sec": 84.861, "event": "tool_finished", "action_id": 17, "tool": "rotate", "actual_value": -24.167873961700327, "result": "Rotated 24.2 deg. Heading now -6.9 deg.", "x": 9.286989073815644, "y": 8.204476369001785, "yaw": -0.11974107194404882}
+{"time_sec": 84.862, "event": "agent_step_finished", "step": 17, "summary": "cycle 17 (target 11/25): rotate({\"angle_degrees\": -24}) -> distance to goal 5.90 m"}
+{"time_sec": 84.863, "event": "goal_check", "step": 17, "distance_to_goal_m": 5.897867054957529, "threshold_m": 0.3, "reached": false}
+{"time_sec": 84.863, "event": "agent_step_started", "step": 18}
+{"time_sec": 94.254, "event": "tool_started", "action_id": 18, "agent_step": 18, "tool": "move_forward", "requested_value": 0.6, "x": 9.292122810532213, "y": 8.204584236542178, "yaw": -0.26185042591491675}
+{"time_sec": 98.433, "event": "tool_finished", "action_id": 18, "tool": "move_forward", "actual_value": 0.6074530568778654, "result": "Moved 0.61 m. Now at (9.88, 8.05).", "x": 9.878873060356788, "y": 8.047347597551575, "yaw": -0.26192139276871884}
+{"time_sec": 98.435, "event": "agent_step_finished", "step": 18, "summary": "cycle 18 (target 12/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 5.85 m"}
+{"time_sec": 98.435, "event": "goal_check", "step": 18, "distance_to_goal_m": 5.85160696420941, "threshold_m": 0.3, "reached": false}
+{"time_sec": 98.436, "event": "agent_step_started", "step": 19}
+{"time_sec": 99.682, "event": "tool_started", "action_id": 19, "agent_step": 19, "tool": "rotate", "requested_value": 22.0, "x": 9.892859658696471, "y": 8.043604951368419, "yaw": -0.2606400694930987}
+{"time_sec": 100.946, "event": "tool_finished", "action_id": 19, "tool": "rotate", "actual_value": 23.753133734741255, "result": "Rotated 23.8 deg. Heading now 8.8 deg.", "x": 9.906804328021748, "y": 8.042301020544175, "yaw": 0.15393032184467365}
+{"time_sec": 100.947, "event": "agent_step_finished", "step": 19, "summary": "cycle 19 (target 12/25): rotate({\"angle_degrees\": 22}) -> distance to goal 5.85 m"}
+{"time_sec": 100.947, "event": "goal_check", "step": 19, "distance_to_goal_m": 5.84872140329809, "threshold_m": 0.3, "reached": false}
+{"time_sec": 100.948, "event": "agent_step_started", "step": 20}
+{"time_sec": 101.936, "event": "tool_started", "action_id": 20, "agent_step": 20, "tool": "move_forward", "requested_value": 0.6, "x": 9.902017531325296, "y": 8.042134696557978, "yaw": 0.2785050462887092}
+{"time_sec": 106.052, "event": "tool_finished", "action_id": 20, "tool": "move_forward", "actual_value": 0.6020775003639149, "result": "Moved 0.60 m. Now at (10.48, 8.21).", "x": 10.479400176514655, "y": 8.212799858435258, "yaw": 0.28814548660413436}
+{"time_sec": 106.054, "event": "agent_step_finished", "step": 20, "summary": "cycle 20 (target 13/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 5.55 m"}
+{"time_sec": 106.054, "event": "goal_check", "step": 20, "distance_to_goal_m": 5.5504494009800505, "threshold_m": 0.3, "reached": false}
+{"time_sec": 106.055, "event": "agent_step_started", "step": 21}
+{"time_sec": 112.362, "event": "tool_started", "action_id": 21, "agent_step": 21, "tool": "rotate", "requested_value": -24.0, "x": 10.493773832024296, "y": 8.217063048727752, "yaw": 0.2907760872281824}
+{"time_sec": 113.49, "event": "tool_finished", "action_id": 21, "tool": "rotate", "actual_value": -24.162153785863364, "result": "Rotated 24.2 deg. Heading now -7.5 deg.", "x": 10.485852294465762, "y": 8.215950991399016, "yaw": -0.13092519467933564}
+{"time_sec": 113.493, "event": "agent_step_finished", "step": 21, "summary": "cycle 21 (target 13/25): rotate({\"angle_degrees\": -24}) -> distance to goal 5.55 m"}
+{"time_sec": 113.494, "event": "goal_check", "step": 21, "distance_to_goal_m": 5.546147366514856, "threshold_m": 0.3, "reached": false}
+{"time_sec": 113.494, "event": "agent_step_started", "step": 22}
+{"time_sec": 114.855, "event": "tool_started", "action_id": 22, "agent_step": 22, "tool": "move_forward", "requested_value": 0.6, "x": 10.489655718374637, "y": 8.215670029184732, "yaw": -0.28649570717906203}
+{"time_sec": 119.012, "event": "tool_finished", "action_id": 22, "tool": "move_forward", "actual_value": 0.6018911447994721, "result": "Moved 0.60 m. Now at (11.07, 8.04).", "x": 11.065792856154653, "y": 8.041489236160157, "yaw": -0.29361299963765025}
+{"time_sec": 119.014, "event": "agent_step_finished", "step": 22, "summary": "cycle 22 (target 14/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 5.64 m"}
+{"time_sec": 119.014, "event": "goal_check", "step": 22, "distance_to_goal_m": 5.642436994272286, "threshold_m": 0.3, "reached": false}
+{"time_sec": 119.015, "event": "agent_step_started", "step": 23}
+{"time_sec": 120.957, "event": "tool_started", "action_id": 23, "agent_step": 23, "tool": "rotate", "requested_value": 24.0, "x": 11.07987462145093, "y": 8.037233688810499, "yaw": -0.2916166635792384}
+{"time_sec": 122.318, "event": "tool_finished", "action_id": 23, "tool": "rotate", "actual_value": 26.93364967382961, "result": "Rotated 26.9 deg. Heading now 10.2 deg.", "x": 11.093339962789944, "y": 8.03565139357024, "yaw": 0.1784642028077852}
+{"time_sec": 122.32, "event": "agent_step_finished", "step": 23, "summary": "cycle 23 (target 14/25): rotate({\"angle_degrees\": 24}) -> distance to goal 5.65 m"}
+{"time_sec": 122.321, "event": "goal_check", "step": 23, "distance_to_goal_m": 5.646142821659837, "threshold_m": 0.3, "reached": false}
+{"time_sec": 122.322, "event": "agent_step_started", "step": 24}
+{"time_sec": 131.016, "event": "tool_started", "action_id": 24, "agent_step": 24, "tool": "move_forward", "requested_value": 0.6, "x": 11.089147657177378, "y": 8.035558138019319, "yaw": 0.3000282057850913}
+{"time_sec": 135.178, "event": "tool_finished", "action_id": 24, "tool": "move_forward", "actual_value": 0.6073714841640895, "result": "Moved 0.61 m. Now at (11.67, 8.22).", "x": 11.669376680452753, "y": 8.215097549638585, "yaw": 0.3001182009455993}
+{"time_sec": 135.181, "event": "agent_step_finished", "step": 24, "summary": "cycle 24 (target 15/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 5.45 m"}
+{"time_sec": 135.182, "event": "goal_check", "step": 24, "distance_to_goal_m": 5.4533346112862455, "threshold_m": 0.3, "reached": false}
+{"time_sec": 135.183, "event": "agent_step_started", "step": 25}
+{"time_sec": 136.532, "event": "tool_started", "action_id": 25, "agent_step": 25, "tool": "rotate", "requested_value": -25.0, "x": 11.682963328520405, "y": 8.21937361996107, "yaw": 0.30006524952638397}
+{"time_sec": 137.795, "event": "tool_finished", "action_id": 25, "tool": "rotate", "actual_value": -26.071689358560278, "result": "Rotated 26.1 deg. Heading now -8.9 deg.", "x": 11.689731056045849, "y": 8.217626051592683, "yaw": -0.1549715713376613}
+{"time_sec": 137.798, "event": "agent_step_finished", "step": 25, "summary": "cycle 25 (target 15/25): rotate({\"angle_degrees\": -25}) -> distance to goal 5.45 m"}
+{"time_sec": 137.799, "event": "goal_check", "step": 25, "distance_to_goal_m": 5.45142953083515, "threshold_m": 0.3, "reached": false}
+{"time_sec": 137.8, "event": "agent_step_started", "step": 26}
+{"time_sec": 138.792, "event": "tool_started", "action_id": 26, "agent_step": 26, "tool": "move_forward", "requested_value": 0.6, "x": 11.694768229773544, "y": 8.217759810171597, "yaw": -0.27432880986242614}
+{"time_sec": 142.993, "event": "tool_finished", "action_id": 26, "tool": "move_forward", "actual_value": 0.6119550955993943, "result": "Moved 0.61 m. Now at (12.28, 8.04).", "x": 12.281750720859062, "y": 8.044726304199187, "yaw": -0.287876170856127}
+{"time_sec": 142.995, "event": "agent_step_finished", "step": 26, "summary": "cycle 26 (target 16/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 5.67 m"}
+{"time_sec": 142.996, "event": "goal_check", "step": 26, "distance_to_goal_m": 5.673797716115014, "threshold_m": 0.3, "reached": false}
+{"time_sec": 142.997, "event": "agent_step_started", "step": 27}
+{"time_sec": 149.136, "event": "tool_started", "action_id": 27, "agent_step": 27, "tool": "rotate", "requested_value": 94.0, "x": 12.29613439633597, "y": 8.040457879529805, "yaw": -0.2902101162025014}
+{"time_sec": 152.835, "event": "tool_finished", "action_id": 27, "tool": "rotate", "actual_value": 96.13314905724269, "result": "Rotated 96.1 deg. Heading now 79.5 deg.", "x": 12.305113731731387, "y": 8.04173742243247, "yaw": 1.387629855156866}
+{"time_sec": 152.837, "event": "agent_step_finished", "step": 27, "summary": "cycle 27 (target 16/25): rotate({\"angle_degrees\": 94}) -> distance to goal 5.68 m"}
+{"time_sec": 152.837, "event": "goal_check", "step": 27, "distance_to_goal_m": 5.6799657515594895, "threshold_m": 0.3, "reached": false}
+{"time_sec": 152.838, "event": "agent_step_started", "step": 28}
+{"time_sec": 153.908, "event": "tool_started", "action_id": 28, "agent_step": 28, "tool": "move_forward", "requested_value": 0.6, "x": 12.305225749921442, "y": 8.033356421626314, "yaw": 1.6017943963240362}
+{"time_sec": 158.046, "event": "tool_finished", "action_id": 28, "tool": "move_forward", "actual_value": 0.6024394177876036, "result": "Moved 0.60 m. Now at (12.29, 8.64).", "x": 12.290305510398131, "y": 8.635611050962472, "yaw": 1.5959335340857541}
+{"time_sec": 158.049, "event": "agent_step_finished", "step": 28, "summary": "cycle 28 (target 17/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 5.09 m"}
+{"time_sec": 158.049, "event": "goal_check", "step": 28, "distance_to_goal_m": 5.090293122330367, "threshold_m": 0.3, "reached": false}
+{"time_sec": 158.051, "event": "agent_step_started", "step": 29}
+{"time_sec": 158.968, "event": "tool_started", "action_id": 29, "agent_step": 29, "tool": "move_forward", "requested_value": 0.6, "x": 12.28993796034883, "y": 8.65022461460596, "yaw": 1.5971540134818725}
+{"time_sec": 163.172, "event": "tool_finished", "action_id": 29, "tool": "move_forward", "actual_value": 0.6177317107547883, "result": "Moved 0.62 m. Now at (12.27, 9.27).", "x": 12.273649596024256, "y": 9.267741542033596, "yaw": 1.5971727075829798}
+{"time_sec": 163.173, "event": "agent_step_finished", "step": 29, "summary": "cycle 29 (target 18/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 4.46 m"}
+{"time_sec": 163.173, "event": "goal_check", "step": 29, "distance_to_goal_m": 4.463753259009892, "threshold_m": 0.3, "reached": false}
+{"time_sec": 163.174, "event": "agent_step_started", "step": 30}
+{"time_sec": 164.536, "event": "tool_started", "action_id": 30, "agent_step": 30, "tool": "rotate", "requested_value": -16.0, "x": 12.2732591554421, "y": 9.282512526416518, "yaw": 1.597412657454594}
+{"time_sec": 165.464, "event": "tool_finished", "action_id": 30, "tool": "rotate", "actual_value": -16.2984438691003, "result": "Rotated 16.3 deg. Heading now 75.2 deg.", "x": 12.273309444164198, "y": 9.274963433678826, "yaw": 1.312953805353903}
+{"time_sec": 165.465, "event": "agent_step_finished", "step": 30, "summary": "cycle 30 (target 18/25): rotate({\"angle_degrees\": -16}) -> distance to goal 4.46 m"}
+{"time_sec": 165.466, "event": "goal_check", "step": 30, "distance_to_goal_m": 4.4565791468018965, "threshold_m": 0.3, "reached": false}
+{"time_sec": 165.466, "event": "agent_step_started", "step": 31}
+{"time_sec": 173.78, "event": "tool_started", "action_id": 31, "agent_step": 31, "tool": "move_forward", "requested_value": 0.6, "x": 12.27453840835241, "y": 9.28182109961412, "yaw": 1.1287706179489492}
+{"time_sec": 177.896, "event": "tool_finished", "action_id": 31, "tool": "move_forward", "actual_value": 0.6023521631197771, "result": "Moved 0.60 m. Now at (12.53, 9.83).", "x": 12.532361397776807, "y": 9.826206472800562, "yaw": 1.1286502834488168}
+{"time_sec": 177.897, "event": "agent_step_finished", "step": 31, "summary": "cycle 31 (target 19/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 3.97 m"}
+{"time_sec": 177.897, "event": "goal_check", "step": 31, "distance_to_goal_m": 3.973008598472515, "threshold_m": 0.3, "reached": false}
+{"time_sec": 177.898, "event": "agent_step_started", "step": 32}
+{"time_sec": 179.657, "event": "tool_started", "action_id": 32, "agent_step": 32, "tool": "rotate", "requested_value": 35.0, "x": 12.53864282041275, "y": 9.83956932910159, "yaw": 1.1288286347014405}
+{"time_sec": 181.199, "event": "tool_finished", "action_id": 32, "tool": "rotate", "actual_value": 35.531118386363715, "result": "Rotated 35.5 deg. Heading now 100.2 deg.", "x": 12.54079227493088, "y": 9.847926723592739, "yaw": 1.748963637459382}
+{"time_sec": 181.201, "event": "agent_step_finished", "step": 32, "summary": "cycle 32 (target 19/25): rotate({\"angle_degrees\": 35}) -> distance to goal 3.95 m"}
+{"time_sec": 181.201, "event": "goal_check", "step": 32, "distance_to_goal_m": 3.9542028124271744, "threshold_m": 0.3, "reached": false}
+{"time_sec": 181.202, "event": "agent_step_started", "step": 33}
+{"time_sec": 182.632, "event": "tool_started", "action_id": 33, "agent_step": 33, "tool": "move_forward", "requested_value": 0.6, "x": 12.541182971823954, "y": 9.84344104018447, "yaw": 1.8824004608800924}
+{"time_sec": 186.819, "event": "tool_finished", "action_id": 33, "tool": "move_forward", "actual_value": 0.6074801923408037, "result": "Moved 0.61 m. Now at (12.35, 10.42).", "x": 12.354085685323877, "y": 10.42139154798832, "yaw": 1.8838419875298913}
+{"time_sec": 186.821, "event": "agent_step_finished", "step": 33, "summary": "cycle 33 (target 20/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 3.35 m"}
+{"time_sec": 186.821, "event": "goal_check", "step": 33, "distance_to_goal_m": 3.34697167796084, "threshold_m": 0.3, "reached": false}
+{"time_sec": 186.822, "event": "agent_step_started", "step": 34}
+{"time_sec": 187.961, "event": "tool_started", "action_id": 34, "agent_step": 34, "tool": "rotate", "requested_value": -24.0, "x": 12.349618285027155, "y": 10.435292093559841, "yaw": 1.8827703713624488}
+{"time_sec": 189.144, "event": "tool_finished", "action_id": 34, "tool": "rotate", "actual_value": -24.159586004936326, "result": "Rotated 24.2 deg. Heading now 83.7 deg.", "x": 12.35140154211189, "y": 10.44034474658405, "yaw": 1.4613605499843105}
+{"time_sec": 189.145, "event": "agent_step_finished", "step": 34, "summary": "cycle 34 (target 20/25): rotate({\"angle_degrees\": -24}) -> distance to goal 3.33 m"}
+{"time_sec": 189.145, "event": "goal_check", "step": 34, "distance_to_goal_m": 3.333043688750629, "threshold_m": 0.3, "reached": false}
+{"time_sec": 189.146, "event": "agent_step_started", "step": 35}
+{"time_sec": 198.477, "event": "tool_started", "action_id": 35, "agent_step": 35, "tool": "move_forward", "requested_value": 0.6, "x": 12.351152267822258, "y": 10.44571885507623, "yaw": 1.3214515728259586}
+{"time_sec": 202.679, "event": "tool_finished", "action_id": 35, "tool": "move_forward", "actual_value": 0.6126237498309741, "result": "Moved 0.61 m. Now at (12.50, 11.04).", "x": 12.502606981163009, "y": 11.039325904111056, "yaw": 1.320914368530338}
+{"time_sec": 202.681, "event": "agent_step_finished", "step": 35, "summary": "cycle 35 (target 21/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 2.81 m"}
+{"time_sec": 202.681, "event": "goal_check", "step": 35, "distance_to_goal_m": 2.8071275954924966, "threshold_m": 0.3, "reached": false}
+{"time_sec": 202.682, "event": "agent_step_started", "step": 36}
+{"time_sec": 203.647, "event": "tool_started", "action_id": 36, "agent_step": 36, "tool": "rotate", "requested_value": 21.0, "x": 12.506196761785315, "y": 11.053390994151282, "yaw": 1.322181287711981}
+{"time_sec": 204.787, "event": "tool_finished", "action_id": 36, "tool": "rotate", "actual_value": 21.513303051045174, "result": "Rotated 21.5 deg. Heading now 97.2 deg.", "x": 12.506484338860202, "y": 11.064735117440408, "yaw": 1.697270769911802}
+{"time_sec": 204.788, "event": "agent_step_finished", "step": 36, "summary": "cycle 36 (target 21/25): rotate({\"angle_degrees\": 21}) -> distance to goal 2.78 m"}
+{"time_sec": 204.788, "event": "goal_check", "step": 36, "distance_to_goal_m": 2.78474562570084, "threshold_m": 0.3, "reached": false}
+{"time_sec": 204.789, "event": "agent_step_started", "step": 37}
+{"time_sec": 206.675, "event": "tool_started", "action_id": 37, "agent_step": 37, "tool": "move_forward", "requested_value": 0.6, "x": 12.507000437318933, "y": 11.060035043269139, "yaw": 1.8539518588778452}
+{"time_sec": 210.807, "event": "tool_finished", "action_id": 37, "tool": "move_forward", "actual_value": 0.602438510425879, "result": "Moved 0.60 m. Now at (12.34, 11.64).", "x": 12.340646355009797, "y": 11.639050136460359, "yaw": 1.8509314506664352}
+{"time_sec": 210.811, "event": "agent_step_finished", "step": 37, "summary": "cycle 37 (target 22/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 2.19 m"}
+{"time_sec": 210.811, "event": "goal_check", "step": 37, "distance_to_goal_m": 2.184558710767311, "threshold_m": 0.3, "reached": false}
+{"time_sec": 210.813, "event": "agent_step_started", "step": 38}
+{"time_sec": 211.862, "event": "tool_started", "action_id": 38, "agent_step": 38, "tool": "move_forward", "requested_value": 0.6, "x": 12.336648836345969, "y": 11.652995459644488, "yaw": 1.8501711384251731}
+{"time_sec": 216.002, "event": "tool_finished", "action_id": 38, "tool": "move_forward", "actual_value": 0.6077584418671631, "result": "Moved 0.61 m. Now at (12.17, 12.24).", "x": 12.168224018596424, "y": 12.236950427451797, "yaw": 1.851699731516873}
+{"time_sec": 216.003, "event": "agent_step_finished", "step": 38, "summary": "cycle 38 (target 23/25): move_forward({\"distance_meters\": 0.6}) -> distance to goal 1.57 m"}
+{"time_sec": 216.003, "event": "goal_check", "step": 38, "distance_to_goal_m": 1.5723224760562073, "threshold_m": 0.3, "reached": false}
+{"time_sec": 216.006, "event": "agent_step_started", "step": 39}
+{"time_sec": 223.649, "event": "tool_started", "action_id": 39, "agent_step": 39, "tool": "move_forward", "requested_value": 0.59, "x": 12.164121644796134, "y": 12.251166950636067, "yaw": 1.8519736029668028}
+{"time_sec": 227.728, "event": "tool_finished", "action_id": 39, "tool": "move_forward", "actual_value": 0.5918519844257194, "result": "Moved 0.59 m. Now at (12.00, 12.82).", "x": 11.998467519501778, "y": 12.824686170289835, "yaw": 1.8519094172042099}
+{"time_sec": 227.73, "event": "agent_step_finished", "step": 39, "summary": "cycle 39 (target 24/25): move_forward({\"distance_meters\": 0.59}) -> distance to goal 0.97 m"}
+{"time_sec": 227.73, "event": "goal_check", "step": 39, "distance_to_goal_m": 0.9715570130385347, "threshold_m": 0.3, "reached": false}
+{"time_sec": 227.731, "event": "agent_step_started", "step": 40}
+{"time_sec": 229.146, "event": "tool_started", "action_id": 40, "agent_step": 40, "tool": "rotate", "requested_value": 17.0, "x": 11.99444270805564, "y": 12.838534274006733, "yaw": 1.8515627158284533}
+{"time_sec": 230.117, "event": "tool_finished", "action_id": 40, "tool": "rotate", "actual_value": 17.507626279770605, "result": "Rotated 17.5 deg. Heading now 123.6 deg.", "x": 11.99213004025323, "y": 12.849759230902777, "yaw": 2.1571284386191363}
+{"time_sec": 230.118, "event": "agent_step_finished", "step": 40, "summary": "cycle 40 (target 24/25): rotate({\"angle_degrees\": 17}) -> distance to goal 0.95 m"}
+{"time_sec": 230.118, "event": "goal_check", "step": 40, "distance_to_goal_m": 0.946699013106983, "threshold_m": 0.3, "reached": false}
+{"time_sec": 230.119, "event": "agent_step_started", "step": 41}
+{"time_sec": 231.269, "event": "tool_started", "action_id": 41, "agent_step": 41, "tool": "move_forward", "requested_value": 0.57, "x": 11.994973561765338, "y": 12.84646125776962, "yaw": 2.3140729203357178}
+{"time_sec": 235.24, "event": "tool_finished", "action_id": 41, "tool": "move_forward", "actual_value": 0.5764280047661492, "result": "Moved 0.58 m. Now at (11.60, 13.26).", "x": 11.598509845068202, "y": 13.264893768482372, "yaw": 2.329583808387661}
+{"time_sec": 235.242, "event": "agent_step_finished", "step": 41, "summary": "cycle 41 (target 25/25): move_forward({\"distance_meters\": 0.57}) -> distance to goal 0.41 m"}
+{"time_sec": 235.243, "event": "goal_check", "step": 41, "distance_to_goal_m": 0.4103278604201067, "threshold_m": 0.3, "reached": false}
+{"time_sec": 235.244, "event": "agent_step_started", "step": 42}
+{"time_sec": 242.485, "event": "tool_started", "action_id": 42, "agent_step": 42, "tool": "rotate", "requested_value": -33.0, "x": 11.588325257390604, "y": 13.27563011001647, "yaw": 2.331693126255958}
+{"time_sec": 243.974, "event": "tool_finished", "action_id": 42, "tool": "rotate", "actual_value": -33.75099886243851, "result": "Rotated 33.8 deg. Heading now 99.8 deg.", "x": 11.594029882776494, "y": 13.269528533324147, "yaw": 1.7426270702695454}
+{"time_sec": 243.975, "event": "agent_step_finished", "step": 42, "summary": "cycle 42 (target 25/25): rotate({\"angle_degrees\": -33}) -> distance to goal 0.40 m"}
+{"time_sec": 243.975, "event": "goal_check", "step": 42, "distance_to_goal_m": 0.4048745770963367, "threshold_m": 0.3, "reached": false}
+{"time_sec": 243.976, "event": "agent_step_started", "step": 43}
+{"time_sec": 247.159, "event": "tool_started", "action_id": 43, "agent_step": 43, "tool": "move_forward", "requested_value": 0.41, "x": 11.594024319875972, "y": 13.27382090119289, "yaw": 1.6024739497892768}
+{"time_sec": 250.075, "event": "tool_finished", "action_id": 43, "tool": "move_forward", "actual_value": 0.418594783917017, "result": "Moved 0.42 m. Now at (11.58, 13.69).", "x": 11.580988037021825, "y": 13.692212641613134, "yaw": 1.6018949181895559}
+{"time_sec": 250.076, "event": "agent_step_finished", "step": 43, "summary": "GOAL REACHED after 43 cycles (distance 0.07 m). Last action: move_forward({\"distance_meters\": 0.41})."}
+{"time_sec": 250.076, "event": "goal_check", "step": 43, "distance_to_goal_m": 0.07291713182146628, "threshold_m": 0.3, "reached": true}
+{"time_sec": 250.079, "event": "run_finished", "status": "success", "reason": "node_goal_tolerance", "ended_at_unix": 1777165215.5516331, "total_time_sec": 250.077, "agent_steps": 43, "final_distance_to_goal_m": 0.07291713182146628}

@@ -1,0 +1,8 @@
+{
+  "status": "success",
+  "reason": "node_goal_tolerance",
+  "ended_at_unix": 1777165215.5516331,
+  "total_time_sec": 250.077,
+  "agent_steps": 43,
+  "final_distance_to_goal_m": 0.07291713182146628
+}

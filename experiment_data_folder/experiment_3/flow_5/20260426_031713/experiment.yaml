@@ -1,0 +1,26 @@
+id: 3
+name: diamond_blocked_default
+map: diamond_blocked
+max_steps: 50
+source:
+  position:
+    x: 13.1001
+    y: 11.3377
+    z: 0.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.991511
+    w: 0.130025
+  yaw_rad: 2.88
+destination:
+  position:
+    x: 10.2383
+    y: 19.1664
+    z: 0.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.723957
+    w: 0.689845
+  yaw_rad: 1.61904

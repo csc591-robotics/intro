@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 20,
+  "role": "AIMessage",
+  "content": "[{'id': 'toolu_017GqbDar3wzZpEePsJ7eg8Q', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_situation', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_situation",
+      "args": {},
+      "id": "toolu_017GqbDar3wzZpEePsJ7eg8Q",
+      "type": "tool_call"
+    }
+  ]
+}

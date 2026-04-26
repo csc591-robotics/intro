@@ -1,0 +1,6 @@
+{"time_sec": 0.03, "event": "run_started"}
+{"time_sec": 6.728, "event": "odometry_ready", "source_x": 3.981274, "source_y": 7.866986, "dest_x": 11.512874, "dest_y": 13.666186}
+{"time_sec": 7.388, "event": "agent_step_started", "step": 1}
+{"time_sec": 8.999, "event": "agent_step_finished", "step": 1, "summary": "get_map_view: Map view captured. Wait for the next human message: it will contain the map image and instructions on what to do next."}
+{"time_sec": 9.001, "event": "goal_check", "step": 1, "distance_to_goal_m": 9.50583797291258, "threshold_m": 0.3, "reached": false}
+{"time_sec": 9.002, "event": "agent_step_started", "step": 2}

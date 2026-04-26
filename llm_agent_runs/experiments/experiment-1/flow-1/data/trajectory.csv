@@ -1,0 +1,2 @@
+time_sec,step,x,y,yaw_rad,yaw_deg,distance_to_goal_m,linear_cmd,angular_cmd,pixel_x,pixel_y,map_value,map_class
+9.001,1,3.981127,7.866726,0.000158,0.009,9.505838,0.000000,0.000000,79,224,254,free

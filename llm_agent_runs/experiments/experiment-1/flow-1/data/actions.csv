@@ -1,0 +1,1 @@
+action_id,agent_step,tool_name,requested_value,time_start_sec,time_end_sec,duration_sec,start_x,start_y,start_yaw_deg,end_x,end_y,end_yaw_deg,actual_value,distance_to_goal_m,result

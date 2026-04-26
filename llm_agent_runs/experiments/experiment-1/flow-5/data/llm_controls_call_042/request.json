@@ -1,0 +1,195 @@
+{
+  "llm_call_num": 42,
+  "agent_step": 42,
+  "model": "claude-sonnet-4-6",
+  "provider": "anthropic",
+  "image_sent": "image_sent.png",
+  "messages": [
+    {
+      "role": "SystemMessage",
+      "content": "You are following a pre-planned path drawn on the map as a MAGENTA line.\nThe path was computed by A* on the rasterized map; it is guaranteed to\nstay in free (white) space, so you do NOT need to worry about black\npixels. Just follow the line.\n\nYour input each turn:\n- The map image, with the MAGENTA polyline showing the planned path,\n  small magenta dots for unreached waypoints, a CYAN crosshair on the\n  current target waypoint, your RED dot + small arrow showing position\n  and heading, BLUE for start, GREEN for the final destination.\n- A text block with your exact pose, the target waypoint coords, the\n  bearing offset from your heading, and a SUGGESTED action that already\n  computes whether to rotate or move_forward.\n\nReply with exactly ONE tool call: move_forward or rotate. The default\nshould be the SUGGESTED action verbatim. Only override it if you can\nclearly see something wrong on the image (e.g. the cyan crosshair is\nnowhere near the magenta line, or the robot has overshot the path).\n\nTools:\n- rotate(angle_degrees): positive = CCW (left), negative = CW (right).\n  When following, use the bearing-from-heading number directly.\n  Example: bearing-from-heading is +37.0 -> rotate(37).\n- move_forward(distance_meters): positive forward, negative backward.\n  Cap at 0.6 m per step; smaller (0.2-0.3 m) when distance to the\n  current target is small.\n\nDo NOT chain tool calls. Do NOT reply with text. One tool call per\nturn, period.\n"
+    },
+    {
+      "role": "HumanMessage",
+      "content": "Goal: navigate from (3.98, 7.87) to (11.51, 13.67). A* has planned a path with 25 waypoints (drawn as the MAGENTA line on every map image). Each turn I will give you the situation; reply with EXACTLY ONE move_forward or rotate tool call, defaulting to the SUGGESTED action."
+    },
+    {
+      "role": "AIMessage",
+      "tool_calls": [
+        {
+          "name": "move_forward",
+          "args": {
+            "distance_meters": 0.6
+          },
+          "id": "toolu_015uTuLMtiT1JVhoyKVe5kSp",
+          "type": "tool_call"
+        }
+      ],
+      "content": [
+        {
+          "id": "toolu_015uTuLMtiT1JVhoyKVe5kSp",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "distance_meters": 0.6
+          },
+          "name": "move_forward",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "role": "ToolMessage",
+      "tool_call_id": "toolu_015uTuLMtiT1JVhoyKVe5kSp",
+      "content": "Moved 0.61 m. Now at (12.17, 12.24)."
+    },
+    {
+      "role": "HumanMessage",
+      "content": [
+        {
+          "type": "text",
+          "text": "Path-follower situation.\n- The MAGENTA line on the map is the pre-planned path. It was computed by A* on the rasterized map and is guaranteed to stay in free (white) space; trust it implicitly.\n- The CYAN crosshair is your CURRENT TARGET waypoint. The system auto-advances to the next waypoint when you are within 0.5 m.\n- The RED dot + small arrow is you and your heading.\n- BLUE = start, GREEN = final destination.\nReply with EXACTLY ONE tool call: move_forward or rotate.\n\n- Pose: (12.17, 12.24), heading +106.1 deg.\n- Current target: (11.93, 12.78); distance 0.59 m; bearing-from-heading +8.3 deg.\n- Final destination: (11.51, 13.67); distance 1.57 m.\n- Waypoints remaining after this one: 2.\n- SUGGESTED ACTION: move_forward(0.59)"
+        },
+        {
+          "type": "text",
+          "text": "[earlier map image pruned to save tokens; only the most recent map view is kept verbatim. Call get_map_view() again if you need a fresh image]"
+        }
+      ]
+    },
+    {
+      "role": "AIMessage",
+      "tool_calls": [
+        {
+          "name": "move_forward",
+          "args": {
+            "distance_meters": 0.59
+          },
+          "id": "toolu_012LBD4yhy4secMWEAfmkXbv",
+          "type": "tool_call"
+        }
+      ],
+      "content": [
+        {
+          "id": "toolu_012LBD4yhy4secMWEAfmkXbv",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "distance_meters": 0.59
+          },
+          "name": "move_forward",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "role": "ToolMessage",
+      "tool_call_id": "toolu_012LBD4yhy4secMWEAfmkXbv",
+      "content": "Moved 0.59 m. Now at (12.00, 12.82)."
+    },
+    {
+      "role": "HumanMessage",
+      "content": [
+        {
+          "type": "text",
+          "text": "Path-follower situation.\n- The MAGENTA line on the map is the pre-planned path. It was computed by A* on the rasterized map and is guaranteed to stay in free (white) space; trust it implicitly.\n- The CYAN crosshair is your CURRENT TARGET waypoint. The system auto-advances to the next waypoint when you are within 0.5 m.\n- The RED dot + small arrow is you and your heading.\n- BLUE = start, GREEN = final destination.\nReply with EXACTLY ONE tool call: move_forward or rotate.\n\n- Pose: (12.00, 12.82), heading +106.1 deg.\n- Current target: (11.68, 13.33); distance 0.60 m; bearing-from-heading +16.8 deg.\n- Final destination: (11.51, 13.67); distance 0.97 m.\n- Waypoints remaining after this one: 1.\n- SUGGESTED ACTION: rotate(+17)"
+        },
+        {
+          "type": "text",
+          "text": "[earlier map image pruned to save tokens; only the most recent map view is kept verbatim. Call get_map_view() again if you need a fresh image]"
+        }
+      ]
+    },
+    {
+      "role": "AIMessage",
+      "tool_calls": [
+        {
+          "name": "rotate",
+          "args": {
+            "angle_degrees": 17
+          },
+          "id": "toolu_01KZfBC3GmuDiMEcEcbxwpig",
+          "type": "tool_call"
+        }
+      ],
+      "content": [
+        {
+          "id": "toolu_01KZfBC3GmuDiMEcEcbxwpig",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "angle_degrees": 17
+          },
+          "name": "rotate",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "role": "ToolMessage",
+      "tool_call_id": "toolu_01KZfBC3GmuDiMEcEcbxwpig",
+      "content": "Rotated 17.5 deg. Heading now 123.6 deg."
+    },
+    {
+      "role": "HumanMessage",
+      "content": [
+        {
+          "type": "text",
+          "text": "Path-follower situation.\n- The MAGENTA line on the map is the pre-planned path. It was computed by A* on the rasterized map and is guaranteed to stay in free (white) space; trust it implicitly.\n- The CYAN crosshair is your CURRENT TARGET waypoint. The system auto-advances to the next waypoint when you are within 0.5 m.\n- The RED dot + small arrow is you and your heading.\n- BLUE = start, GREEN = final destination.\nReply with EXACTLY ONE tool call: move_forward or rotate.\n\n- Pose: (11.99, 12.85), heading +123.6 deg.\n- Current target: (11.68, 13.33); distance 0.57 m; bearing-from-heading +0.1 deg.\n- Final destination: (11.51, 13.67); distance 0.95 m.\n- Waypoints remaining after this one: 1.\n- SUGGESTED ACTION: move_forward(0.57)"
+        },
+        {
+          "type": "text",
+          "text": "[earlier map image pruned to save tokens; only the most recent map view is kept verbatim. Call get_map_view() again if you need a fresh image]"
+        }
+      ]
+    },
+    {
+      "role": "AIMessage",
+      "tool_calls": [
+        {
+          "name": "move_forward",
+          "args": {
+            "distance_meters": 0.57
+          },
+          "id": "toolu_01DaDoXDxpVYTHN7SRigjH1G",
+          "type": "tool_call"
+        }
+      ],
+      "content": [
+        {
+          "id": "toolu_01DaDoXDxpVYTHN7SRigjH1G",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "distance_meters": 0.57
+          },
+          "name": "move_forward",
+          "type": "tool_use"
+        }
+      ]
+    },
+    {
+      "role": "ToolMessage",
+      "tool_call_id": "toolu_01DaDoXDxpVYTHN7SRigjH1G",
+      "content": "Moved 0.58 m. Now at (11.60, 13.26)."
+    },
+    {
+      "role": "HumanMessage",
+      "content": [
+        {
+          "type": "text",
+          "text": "Path-follower situation.\n- The MAGENTA line on the map is the pre-planned path. It was computed by A* on the rasterized map and is guaranteed to stay in free (white) space; trust it implicitly.\n- The CYAN crosshair is your CURRENT TARGET waypoint. The system auto-advances to the next waypoint when you are within 0.5 m.\n- The RED dot + small arrow is you and your heading.\n- BLUE = start, GREEN = final destination.\nReply with EXACTLY ONE tool call: move_forward or rotate.\n\n- Pose: (11.60, 13.26), heading +133.5 deg.\n- Current target: (11.53, 13.68); distance 0.42 m; bearing-from-heading -33.3 deg.\n- Final destination: (11.51, 13.67); distance 0.41 m.\n- Waypoints remaining after this one: 0.\n- SUGGESTED ACTION: rotate(-33)"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "<inline PNG, see image_sent.png>"
+          }
+        }
+      ]
+    }
+  ]
+}

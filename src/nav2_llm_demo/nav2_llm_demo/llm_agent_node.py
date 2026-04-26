@@ -8,9 +8,12 @@ The node:
 - Runs a VisionNavigationAgent that sees an annotated map and calls tools
 """
 
+import json
 import math
+import os
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 from geometry_msgs.msg import PoseStamped, Twist
@@ -89,6 +92,21 @@ class LlmAgentNode(Node):
 
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
+
+        # Optional per-action JSONL log. The nav2_llm_experiments orchestrator
+        # sets this to <experiment_dir>/actions.jsonl so every move_forward /
+        # rotate call gets a structured record (start/end ts, requested vs
+        # achieved, timed_out). When the env var is unset the writes are
+        # skipped, keeping the standalone demo behavior unchanged.
+        self._actions_log_path: Path | None = None
+        actions_log_env = os.environ.get("LLM_ACTIONS_LOG", "").strip()
+        if actions_log_env:
+            self._actions_log_path = Path(actions_log_env).expanduser()
+            try:
+                self._actions_log_path.parent.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                self._actions_log_path = None
+        self._actions_log_lock = threading.Lock()
 
         set_controller(self)
 
@@ -199,20 +217,32 @@ class LlmAgentNode(Node):
             speed = self._linear_speed
         speed = min(abs(speed), 0.26)
 
-        x0, y0, _ = self.get_pose()
+        x0, y0, yaw0 = self.get_pose()
         target_dist = abs(distance_m)
         direction = 1.0 if distance_m >= 0 else -1.0
 
         twist = Twist()
         twist.linear.x = direction * speed
 
+        t_start_wall = time.time()
         t0 = time.monotonic()
         rate = self.create_rate(20)
         traveled = 0.0
+        timed_out = False
 
         while traveled < target_dist:
             if time.monotonic() - t0 > self._move_timeout:
                 self._stop()
+                cx, cy, cyaw = self.get_pose()
+                self._log_action(
+                    "move_forward",
+                    {"distance_m": float(distance_m), "speed": float(speed)},
+                    t_start_wall,
+                    (x0, y0, yaw0),
+                    (cx, cy, cyaw),
+                    achieved={"distance_m": float(traveled)},
+                    timed_out=True,
+                )
                 return f"Timed out after moving {traveled:.2f} m of requested {distance_m:.2f} m."
 
             self._cmd_pub.publish(twist)
@@ -222,7 +252,16 @@ class LlmAgentNode(Node):
             traveled = math.hypot(cx - x0, cy - y0)
 
         self._stop()
-        cx, cy, _ = self.get_pose()
+        cx, cy, cyaw = self.get_pose()
+        self._log_action(
+            "move_forward",
+            {"distance_m": float(distance_m), "speed": float(speed)},
+            t_start_wall,
+            (x0, y0, yaw0),
+            (cx, cy, cyaw),
+            achieved={"distance_m": float(traveled)},
+            timed_out=timed_out,
+        )
         return f"Moved {traveled:.2f} m. Now at ({cx:.2f}, {cy:.2f})."
 
     def rotate(self, angle_deg: float, speed: float | None = None) -> str:
@@ -235,19 +274,31 @@ class LlmAgentNode(Node):
         target_rad = abs(angle_rad)
         direction = 1.0 if angle_rad >= 0 else -1.0
 
-        _, _, yaw0 = self.get_pose()
+        x0, y0, yaw0 = self.get_pose()
 
         twist = Twist()
         twist.angular.z = direction * speed
 
+        t_start_wall = time.time()
         t0 = time.monotonic()
         rate = self.create_rate(20)
         rotated = 0.0
         prev_yaw = yaw0
+        timed_out = False
 
         while rotated < target_rad:
             if time.monotonic() - t0 > self._move_timeout:
                 self._stop()
+                cx, cy, cyaw = self.get_pose()
+                self._log_action(
+                    "rotate",
+                    {"angle_deg": float(angle_deg), "speed": float(speed)},
+                    t_start_wall,
+                    (x0, y0, yaw0),
+                    (cx, cy, cyaw),
+                    achieved={"angle_deg": math.degrees(rotated)},
+                    timed_out=True,
+                )
                 return (
                     f"Timed out after rotating {math.degrees(rotated):.1f} deg "
                     f"of requested {angle_deg:.1f} deg."
@@ -266,7 +317,16 @@ class LlmAgentNode(Node):
             prev_yaw = yaw_now
 
         self._stop()
-        _, _, final_yaw = self.get_pose()
+        cx, cy, final_yaw = self.get_pose()
+        self._log_action(
+            "rotate",
+            {"angle_deg": float(angle_deg), "speed": float(speed)},
+            t_start_wall,
+            (x0, y0, yaw0),
+            (cx, cy, final_yaw),
+            achieved={"angle_deg": math.degrees(rotated)},
+            timed_out=timed_out,
+        )
         return f"Rotated {math.degrees(rotated):.1f} deg. Heading now {math.degrees(final_yaw):.1f} deg."
 
     # ------------------------------------------------------------------
@@ -275,6 +335,47 @@ class LlmAgentNode(Node):
 
     def _stop(self) -> None:
         self._cmd_pub.publish(Twist())
+
+    def _log_action(
+        self,
+        name: str,
+        args: dict[str, Any],
+        t_start_wall: float,
+        pose_before: tuple[float, float, float],
+        pose_after: tuple[float, float, float],
+        achieved: dict[str, float],
+        timed_out: bool,
+    ) -> None:
+        """Append one JSONL record to ``LLM_ACTIONS_LOG`` if it is set.
+
+        The experiments orchestrator points ``LLM_ACTIONS_LOG`` at
+        ``<experiment_dir>/actions.jsonl``. Demo runs leave it unset and
+        this method becomes a no-op.
+        """
+        if self._actions_log_path is None:
+            return
+        record = {
+            "name": name,
+            "args": args,
+            "t_start": t_start_wall,
+            "t_end": time.time(),
+            "duration_sec": time.time() - t_start_wall,
+            "pose_before": {
+                "x": pose_before[0], "y": pose_before[1], "yaw": pose_before[2],
+            },
+            "pose_after": {
+                "x": pose_after[0], "y": pose_after[1], "yaw": pose_after[2],
+            },
+            "achieved": achieved,
+            "timed_out": bool(timed_out),
+        }
+        line = json.dumps(record, ensure_ascii=False) + "\n"
+        try:
+            with self._actions_log_lock:
+                with self._actions_log_path.open("a", encoding="utf-8") as fh:
+                    fh.write(line)
+        except OSError:
+            pass
 
     def _odom_cb(self, msg: Odometry) -> None:
         pos = msg.pose.pose.position
@@ -357,7 +458,21 @@ class LlmAgentNode(Node):
         )
 
         # max_agent_steps == 0 -> unlimited (loop until goal or shutdown).
+        # The nav2_llm_experiments orchestrator overrides this via the env
+        # var LLM_AGENT_MAX_STEPS (default 50 in that orchestrator) without
+        # needing to thread a launch arg through. The launch-arg parameter
+        # still wins when explicitly set; the env var only fills in the
+        # default ``0`` (unlimited) so demo behavior is unchanged.
         max_steps = self._int("max_agent_steps")
+        if max_steps <= 0:
+            env_val = os.environ.get("LLM_AGENT_MAX_STEPS", "").strip()
+            if env_val:
+                try:
+                    max_steps = max(0, int(env_val))
+                except ValueError:
+                    self.get_logger().warn(
+                        f"Ignoring non-integer LLM_AGENT_MAX_STEPS={env_val!r}"
+                    )
         goal_tol = self._float("goal_tolerance_m")
         logged_run_dir = False
 

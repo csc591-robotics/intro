@@ -105,7 +105,20 @@ def make_run_dir(flow: str | int | None = None) -> Path:
     ``flow`` defaults to ``$LLM_FLOW`` (which itself defaults to ``"1"``).
     Each call generates a fresh timestamp so two agents launched in the same
     second still get separate folders.
+
+    When the ``LLM_RUN_DIR_OVERRIDE`` env var is set, its value is used as
+    the run directory verbatim and ``flow`` is ignored. The
+    ``nav2_llm_experiments`` orchestrator uses this to redirect every flow's
+    per-LLM-call artifacts (``request.json`` / ``response.json`` /
+    ``image_sent.png``) into the per-experiment data folder. The override
+    is created if it does not exist; existing contents are preserved.
     """
+    override = os.environ.get("LLM_RUN_DIR_OVERRIDE", "").strip()
+    if override:
+        run_dir = Path(override).expanduser()
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return run_dir
+
     if flow is None:
         flow = os.environ.get("LLM_FLOW", "1").strip() or "1"
     workspace = os.environ.get("WORKSPACE_DIR", "/workspace")

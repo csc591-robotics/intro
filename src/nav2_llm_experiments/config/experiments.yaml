@@ -1,0 +1,79 @@
+# ============================================================================
+# experiments.yaml  —  batch of navigation experiments for nav2_llm_experiments
+#
+# Each entry defines ONE navigation task: a map name (resolved against
+# custom_map_builder/maps/map_poses.yaml for the sidecar / .world / map
+# YAML), a source pose, a destination pose, and an optional max_steps cap
+# on the agent loop. The flow(s) to run come from the CLI:
+#
+#   bash src/nav2_llm_experiments/scripts/run_experiments.sh --flow 3,5
+#       runs every experiment below for flow_3 and flow_5
+#
+#   bash src/nav2_llm_experiments/scripts/run_experiments.sh \
+#         --experiment 1,3 --flow 5
+#       runs only experiments id=1 and id=3 for flow_5
+#
+# ── Coordinates frame ─────────────────────────────────────────────────────────
+# Same as map_poses.yaml: the position {x, y, z} is in the GAZEBO WORLD
+# frame for sidecar maps (warehouse, workshop_example, ...) and in the MAP
+# frame for hand-crafted maps (diamond_blocked, ...). The sidecar's
+# world_to_map_offset is applied automatically by parse_map_poses.py, just
+# like in the existing demo flow.
+#
+# Capture coordinates with:
+#   LAUNCH_GAZEBO=false bash src/custom_map_builder/scripts/run_map_builder.sh <map>
+#   then in RViz press P (Publish Point) and read the GAZEBO WORLD x,y from
+#   the terminal, OR use the existing entries in map_poses.yaml as a starting
+#   point.
+# ============================================================================
+
+frame: gazebo_world
+
+defaults:
+  # Used when an experiment omits ``max_steps``. Caps how many LLM cycles the
+  # agent is allowed before the orchestrator declares max_steps_exhausted.
+  max_steps: 50
+
+experiments:
+
+  # Replays the pose used by the standalone demo
+  # (`bash run_llm_nav.sh warehouse --flow N`).
+  - id: 1
+    name: warehouse_default_route
+    map: warehouse
+    max_steps: 60
+    source:
+      position: {x: -4.7094, y: -3.8890, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 0.0
+    destination:
+      position: {x: 2.8222, y: 1.9102, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 0.0
+
+  # Same warehouse, reversed route: dock back to the aisle.
+  - id: 2
+    name: warehouse_reverse_route
+    map: warehouse
+    source:
+      position: {x: 2.8222, y: 1.9102, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 3.14159
+    destination:
+      position: {x: -4.7094, y: -3.8890, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+      yaw_rad: 3.14159
+
+  # Hand-crafted map. Coordinates are already in the MAP frame (no sidecar).
+  - id: 3
+    name: diamond_blocked_default
+    map: diamond_blocked
+    max_steps: 50
+    source:
+      position: {x: 13.1001, y: 11.3377, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.991511, w: 0.130025}
+      yaw_rad: 2.88
+    destination:
+      position: {x: 10.2383, y: 19.1664, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.723957, w: 0.689845}
+      yaw_rad: 1.61904

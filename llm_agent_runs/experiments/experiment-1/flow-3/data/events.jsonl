@@ -1,0 +1,6 @@
+{"time_sec": 0.026, "event": "run_started"}
+{"time_sec": 6.138, "event": "odometry_ready", "source_x": 3.981274, "source_y": 7.866986, "dest_x": 11.512874, "dest_y": 13.666186}
+{"time_sec": 6.757, "event": "agent_step_started", "step": 1}
+{"time_sec": 20.508, "event": "tool_started", "action_id": 1, "agent_step": 1, "tool": "move_forward", "requested_value": 1.0, "x": 3.9810915835933516, "y": 7.866723006265506, "yaw": 0.0004170644906573405}
+{"time_sec": 27.38, "event": "tool_finished", "action_id": 1, "tool": "move_forward", "actual_value": 1.0103817169262435, "result": "Moved 1.01 m. Now at (4.99, 7.87).", "x": 4.991473247516275, "y": 7.867050278580059, "yaw": 0.0003693021084398277}
+{"time_sec": 33.978, "event": "tool_started", "action_id": 2, "agent_step": 1, "tool": "move_forward", "requested_value": 1.0, "x": 5.006082377295465, "y": 7.86705585575108, "yaw": 0.0006747950525109602}

@@ -1,0 +1,38 @@
+{
+  "experiment_id": "experiment-1",
+  "experiment_map": "warehouse",
+  "experiment_run_dir": "/workspace/llm_agent_runs/experiments/experiment-1/flow-5/data",
+  "flow": "5",
+  "model_provider": "anthropic",
+  "model_name": "claude-sonnet-4-6",
+  "map_yaml_path": "/workspace/src/world_to_map/maps/warehouse.yaml",
+  "map_poses_path": "/workspace/src/custom_map_builder/maps/map_poses.yaml",
+  "sidecar_path": "/workspace/src/world_to_map/maps/warehouse.world_map.yaml",
+  "world_file": "/workspace/world_files/warehouse.world",
+  "source_map": {
+    "x": 3.981274,
+    "y": 7.866986,
+    "yaw": 0.0
+  },
+  "destination_map": {
+    "x": 11.512874,
+    "y": 13.666186,
+    "yaw": 0.0
+  },
+  "source_world": {
+    "x": -4.7094,
+    "y": -3.889
+  },
+  "destination_world": {
+    "x": 2.8222,
+    "y": 1.9102
+  },
+  "goal_tolerance_m": 0.3,
+  "started_at_unix": 1777164965.5049734,
+  "status": "success",
+  "reason": "node_goal_tolerance",
+  "ended_at_unix": 1777165215.5516331,
+  "total_time_sec": 250.077,
+  "agent_steps": 43,
+  "final_distance_to_goal_m": 0.07291713182146628
+}

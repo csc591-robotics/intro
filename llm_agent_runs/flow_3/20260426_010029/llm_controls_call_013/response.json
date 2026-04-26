@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 13,
+  "role": "AIMessage",
+  "content": "[{'text': \"Good, still moving east in the middle corridor. The green destination is in the upper-right. I need to look for a gap in the black wall above me. Let me continue east — the destination appears to be roughly at x=11.51, and I'm at x=7.02, so I need to go further right. Let me keep moving east.\", 'type': 'text'}, {'id': 'toolu_01CpJotGde1jHguD5t6zutFs', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01CpJotGde1jHguD5t6zutFs",
+      "type": "tool_call"
+    }
+  ]
+}

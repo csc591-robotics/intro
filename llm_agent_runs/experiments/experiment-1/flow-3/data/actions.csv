@@ -1,0 +1,2 @@
+action_id,agent_step,tool_name,requested_value,time_start_sec,time_end_sec,duration_sec,start_x,start_y,start_yaw_deg,end_x,end_y,end_yaw_deg,actual_value,distance_to_goal_m,result
+1,1,move_forward,1.000000,20.508,27.380,6.872,3.981092,7.866723,0.024,4.991473,7.867050,0.021,1.010382,8.726892,"Moved 1.01 m. Now at (4.99, 7.87)."
