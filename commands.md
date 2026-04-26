@@ -3,6 +3,67 @@
 Run `run_llm_nav.sh` only inside the Docker container.
 Do not run it from your Mac host shell.
 
+## Warehouse
+
+Use this when the full `warehouse.world` assets are not available and you want
+the warehouse map + graph agent to run reliably.
+
+### Terminal 1 (host): start container
+```bash
+docker compose up -d --build
+docker compose exec autonomous_pathing_llm bash
+```
+
+### Terminal 2 (container): build + source
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+rm -rf build/nav2_llm_demo install/nav2_llm_demo log
+colcon build --packages-select nav2_llm_demo
+source /workspace/install/setup.bash
+```
+
+### Terminal 3 (container): run simulator (empty world, headless)
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+source /workspace/install/setup.bash
+export TURTLEBOT3_MODEL=burger
+ros2 launch turtlebot3_gazebo empty_world.launch.py x_pose:=3.981274 y_pose:=7.866986 gui:=false
+```
+
+### Terminal 4 (container): run warehouse map + graph node
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+source /workspace/install/setup.bash
+ros2 launch nav2_llm_demo llm_agent.launch.py \
+  map_yaml:=/workspace/src/world_to_map/maps/warehouse.yaml \
+  source_x:=3.981274 source_y:=7.866986 source_yaw:=0.0 \
+  dest_x:=11.512874 dest_y:=13.666186 dest_yaw:=0.0 \
+  static_tf_x:=0.0 static_tf_y:=0.0 \
+  use_sim_time:=true launch_rviz:=false
+```
+
+### Terminal 5 (container): quick checks
+```bash
+cd /workspace
+source /workspace/.env
+source /opt/ros/humble/setup.bash
+source /workspace/install/setup.bash
+ros2 topic echo /odom --once
+python3 - <<'PY'
+import json
+g = json.load(open('/workspace/topology_graph_debug.json'))
+print('nodes=', len(g['nodes']), 'edges=', len(g['edges']))
+print('node_ids=', [n['node_id'] for n in g['nodes']])
+print('edges=', [(e['from_node'], e['to_node']) for e in g['edges']])
+PY
+```
+
 
 ## In a terminal on your local machine
 ```bash
@@ -15,7 +76,7 @@ From the repo root on your Mac:
 ```bash
 docker compose up -d --build
 ```
-s
+
 ## Terminal 2: Build The ROS Package
 
 Open a new terminal on your Mac, then enter the container:
@@ -30,13 +91,11 @@ Inside the container:
 source /opt/ros/humble/setup.bash
 colcon build --packages-select nav2_llm_demo
 source install/setup.bash
-
-
 ```
 
 If the build succeeds, stay in this terminal if you want, or exit it.
 
-## Terminal 3: Run Everything For Step 1-4
+## Terminal 3: Run the LLM Agent
 
 Open a new terminal on your Mac, then enter the container:
 
@@ -44,44 +103,35 @@ Open a new terminal on your Mac, then enter the container:
 docker compose exec autonomous_pathing_llm bash
 ```
 
-Inside the container:
+Inside the container, run with a map name:
 
 ```bash
-bash ./run_llm_nav.sh
+bash ./run_llm_nav.sh diamond_blocked
 ```
 
-Or with a custom mission:
+The map name must match an entry in `src/nav2_llm_demo/maps/nav_config.yaml`.
 
-```bash
-bash ./run_llm_nav.sh "Reach the far side of the obstacle course"
-```
+That script does all of this:
+- parses `nav_config.yaml` for the map's source/destination poses
+- starts Gazebo (empty world) with TurtleBot3 spawned at the source pose
+- starts `map_server` with the selected map
+- starts the `llm_agent_node` (LangGraph vision agent)
+- streams `/navigation_status` updates
 
-That script now does all of this:
-- starts Gazebo + TurtleBot3
-- starts Nav2 + AMCL
-- starts `llm_nav_node`
-- starts a background `ros2 topic echo /navigation_status`
-- publishes one mission request to `/navigation_request`
+The agent will:
+1. Capture a top-down annotated map view
+2. Use the vision LLM to decide movement actions
+3. Control the robot via `cmd_vel` (move forward, rotate)
+4. Repeat until it reaches the destination
 
 Leave this terminal open while the system is running.
 
-## Terminal 4: Optional Manual Mission Publish
+## Adding a New Map
 
-Only open this if you want to send another mission while Terminal 3 is still running.
-
-On your Mac:
-
-```bash
-docker compose exec autonomous_pathing_llm bash
-```
-
-Inside the container:
-
-```bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 topic pub --once /navigation_request std_msgs/msg/String "{data: 'Reach the loading zone'}"
-```
+1. Create/test the map in `custom_map_builder` (using `run_map_builder.sh`).
+2. Copy the `.pgm` and `.yaml` files into `src/nav2_llm_demo/maps/`.
+3. Add an entry in `src/nav2_llm_demo/maps/nav_config.yaml` with source/destination poses.
+4. Rebuild: `colcon build --packages-select nav2_llm_demo`
 
 ## If It Fails Immediately
 
@@ -89,7 +139,9 @@ Check these first:
 - you are inside the Docker container, not your Mac host shell
 - `.env` exists at `/workspace/.env`
 - `.env` contains `LLM_PROVIDER=...` and `LLM_MODEL=...` plus the matching provider API key (see `.env.example`)
+- the LLM model must support **vision** (e.g. `gpt-4o`, `claude-3-5-sonnet-20241022`, `gemini-1.5-pro`)
 - `colcon build --packages-select nav2_llm_demo` finished successfully
+- the map files (`.pgm` + `.yaml`) exist in `src/nav2_llm_demo/maps/`
 - you left Terminal 3 open after starting `run_llm_nav.sh`
 
 ## Gazebo GUI: `Authorization required` / `gzclient` died
@@ -99,7 +151,7 @@ Check these first:
 If you see `Authorization required, but no authorization protocol specified` and `[ERROR] [gzclient-2]: process has died`, the physics server (`gzserver`) may still be running, but the **GUI cannot open**. Typical causes:
 
 - SSH without forwarding: plain `ssh user@host` has no display. Use **X11 forwarding** (`ssh -Y user@host`) **and** an X server on your laptop (XQuartz on macOS, VcXsrv/WSLg on Windows), **or**
-- **Remote VM / lab machine (e.g. VCL):** run `run_llm_nav.sh` from a **desktop session** for that VM (VNC, noVNC, or the provider’s “console” GUI), not only from a text-only SSH session. Open a terminal **inside** that desktop so `DISPLAY` is set (often `:0` or `:1`).
+- **Remote VM / lab machine (e.g. VCL):** run `run_llm_nav.sh` from a **desktop session** for that VM (VNC, noVNC, or the provider's "console" GUI), not only from a text-only SSH session. Open a terminal **inside** that desktop so `DISPLAY` is set (often `:0` or `:1`).
 - **Wrong `DISPLAY` or missing cookie:** the user that starts Gazebo must match the user logged into the graphical session, or you must **merge `xauth`** / use the same `DISPLAY` as the active desktop.
 
 There is no project setting that fixes this; the fix is to run Gazebo where a real (or forwarded) X session exists. `gzserver` alone does not need a monitor, but **you asked for the full Gazebo window**, so the environment must provide one.
@@ -134,58 +186,12 @@ Ensure `echo $DISPLAY` is set on the host when you start Compose (e.g. `:0` or `
 
 ### macOS + Docker Desktop
 
-`xhost` on the Mac does not apply the same way. You typically need **XQuartz**, configure it to accept network connections, and point the container at your host’s display (Docker Desktop networking differs from Linux `network_mode: host`). Follow a ROS-on-Docker + XQuartz guide if you run the GUI from a container on Mac.
+`xhost` on the Mac does not apply the same way. You typically need **XQuartz**, configure it to accept network connections, and point the container at your host's display (Docker Desktop networking differs from Linux `network_mode: host`). Follow a ROS-on-Docker + XQuartz guide if you run the GUI from a container on Mac.
 
-## Rasterize a .world into an RViz map (`world_to_map` package)
 
-Inside the container:
 
-```bash
-cd /workspace/intro
-colcon build --packages-select world_to_map
-source install/setup.bash
-# List every world the runner knows about (originals + collection).
-bash src/world_to_map/run_world_to_map.sh
-# Pick one — examples below:
-bash src/world_to_map/run_world_to_map.sh diamond_map
-bash src/world_to_map/run_world_to_map.sh workshop_example
-bash src/world_to_map/run_world_to_map.sh house
-```
-
-The runner also searches `intro/world_files/gazebo_models_worlds_collection/worlds/`
-and points `GAZEBO_MODEL_PATH` at that collection's `models/` so every
-`model://...` include resolves both for Gazebo (visual render) and for the
-rasterizer (RViz occupancy grid).
-
-It generates `intro/src/world_to_map/maps/<name>.{pgm,yaml,world_map.yaml}`
-and starts Gazebo + map_server + RViz with a TurtleBot3 spawned at the
-origin. In a SECOND terminal, drive it with the bundled WASDX teleop
-(`w`/`x` forward-back, `a`/`d` turn, `s` stop, `q` quit):
-
-```bash
-docker compose exec autonomous_pathing_llm bash
-export TURTLEBOT3_MODEL=burger
-source /opt/ros/humble/setup.bash && source install/setup.bash
-ros2 run world_to_map teleop_wasdx
-```
-
-By default the rasterized map sits in the **positive quadrant** with its
-bottom-left corner at the map frame origin (0, 0), and the launch
-publishes a static `map -> odom` transform with the matching offset so
-2 m driven in Gazebo still shows as 2 m on the RViz map. Set
-`ORIGIN_MODE=world` to make `map` frame identical to Gazebo's `world`
-frame instead. See `src/world_to_map/README.md` for all env overrides
-(`RESOLUTION`, `PADDING`, `Z_MIN/MAX`, `X_POSE/Y_POSE/YAW`, `ORIGIN_MODE`,
-`FORCE`, `EXTRA_GAZEBO_MODEL_PATH`).
-
-## Step 2: Start LangGraph controller
-docker compose exec autonomous_pathing_llm bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 launch nav2_llm_tools step2_tools.launch.py
-
-## Step 2: Start MCP server for an external LLM client
-docker compose exec autonomous_pathing_llm bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 run nav2_llm_tools mcp_server
+  rm -rf build/nav2_llm_demo install/nav2_llm_demo log
+  source /opt/ros/humble/setup.bash
+  colcon build --packages-select nav2_llm_demo
+  source install/setup.bash
+  bash ./run_llm_nav.sh diamond_blocked

@@ -1,41 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve the repo/workspace directory
+# ---------------------------------------------------------------------------
+# LLM Agent Navigation Runner
+#
+# Usage:
+#   bash ./run_llm_nav.sh MAP_NAME
+#   bash ./run_llm_nav.sh diamond_blocked
+#
+# MAP_NAME is looked up in src/nav2_llm_demo/maps/nav_config.yaml.
+# The script starts Gazebo, map_server, and the LLM vision agent.
+# ---------------------------------------------------------------------------
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 
-# create a mission request, while also including a default
-MISSION_REQUEST="${1:-Reach the far side of the obstacle course}"
+# The map name is the first argument (required).
+MAP_NAME="${1:-}"
+if [[ -z "$MAP_NAME" ]]; then
+  echo "Usage: bash ./run_llm_nav.sh MAP_NAME"
+  echo ""
+  echo "MAP_NAME must match an entry in src/nav2_llm_demo/maps/nav_config.yaml."
+  echo "Example: bash ./run_llm_nav.sh diamond_blocked"
+  exit 1
+fi
 
-# ROS launch options
+NAV_CONFIG="${WORKSPACE_DIR}/src/nav2_llm_demo/maps/nav_config.yaml"
+PARSE_SCRIPT="${WORKSPACE_DIR}/src/nav2_llm_demo/scripts/parse_nav_config.py"
+
 USE_SIM_TIME="${USE_SIM_TIME:-True}"
-USE_RVIZ="${USE_RVIZ:-False}"
-DEFAULT_NAV2_MAP="${WORKSPACE_DIR}/src/nav2_llm_demo/config/custom_map.yaml"
-NAV2_MAP="${NAV2_MAP:-$DEFAULT_NAV2_MAP}"
-NAV2_PARAMS_FILE="${NAV2_PARAMS_FILE:-}"
-INITIAL_POSE_X="${INITIAL_POSE_X:-0.0}"
-INITIAL_POSE_Y="${INITIAL_POSE_Y:-0.0}"
-INITIAL_POSE_Z="${INITIAL_POSE_Z:-0.0}"
-INITIAL_POSE_QZ="${INITIAL_POSE_QZ:-0.0}"
-INITIAL_POSE_QW="${INITIAL_POSE_QW:-1.0}"
-INITIAL_POSE_RETRIES="${INITIAL_POSE_RETRIES:-5}"
+USE_RVIZ="${USE_RVIZ:-True}"
+GAZEBO_STARTUP_WAIT="${GAZEBO_STARTUP_WAIT:-5}"
 
-# startup buffers
-NAV2_STARTUP_WAIT_SEC="${NAV2_STARTUP_WAIT_SEC:-8}"
-LLM_NODE_WAIT_SEC="${LLM_NODE_WAIT_SEC:-5}"
+# ---------------------------------------------------------------------------
+# Cleanup
+# ---------------------------------------------------------------------------
 
 cleanup() {
   local exit_code=$?
-  # kill previous ros2 processes that might cause conflicts.
   if [[ -n "${STATUS_PID:-}" ]]; then
     kill "$STATUS_PID" >/dev/null 2>&1 || true
   fi
-  if [[ -n "${LLM_NAV_PID:-}" ]]; then
-    kill "$LLM_NAV_PID" >/dev/null 2>&1 || true
-  fi
-  if [[ -n "${NAV2_PID:-}" ]]; then
-    kill "$NAV2_PID" >/dev/null 2>&1 || true
+  if [[ -n "${AGENT_PID:-}" ]]; then
+    kill "$AGENT_PID" >/dev/null 2>&1 || true
   fi
   if [[ -n "${GAZEBO_PID:-}" ]]; then
     kill "$GAZEBO_PID" >/dev/null 2>&1 || true
@@ -46,148 +53,130 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-# set intitial locatin
-INITIAL_POSE_PAYLOAD=$(cat <<EOF
-{header: {frame_id: map}, pose: {pose: {position: {x: $INITIAL_POSE_X, y: $INITIAL_POSE_Y, z: $INITIAL_POSE_Z}, orientation: {x: 0.0, y: 0.0, z: $INITIAL_POSE_QZ, w: $INITIAL_POSE_QW}}, covariance: [0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1]}}
-EOF
-)
+# ---------------------------------------------------------------------------
+# Source ROS + workspace
+# ---------------------------------------------------------------------------
 
-# Enter the mounted ROS workspace and load the base ROS environment.
 cd "$WORKSPACE_DIR"
 
-# run command in safety mode
 set +u
 source /opt/ros/humble/setup.bash
 set -u
 
-# The package must already be built so ROS can find the installed nodes.
 if [[ ! -f install/setup.bash ]]; then
-  echo "Missing install/setup.bash. Build the workspace before running this script."
+  echo "Missing install/setup.bash. Build the workspace first:"
+  echo "  colcon build --packages-select nav2_llm_demo"
   exit 1
 fi
 
-# Load the workspace overlay so `ros2 run` can see this repo's packages.
 set +u
 source install/setup.bash
 set -u
 
-# Export variables from `.env` into this shell before launching ROS processes.
 if [[ -f .env ]]; then
   set -a
   source .env
   set +a
 fi
 
-# TurtleBot3 launch files require this; default matches docker-compose.yaml.
-# Override in `.env` if you use waffle or waffle_pi.
 export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
 
-# The LLM node reads LLM_PROVIDER and LLM_MODEL from the environment,
-# plus whichever API key the chosen provider requires (e.g. OPENAI_API_KEY).
+# ---------------------------------------------------------------------------
+# Validate LLM env
+# ---------------------------------------------------------------------------
+
 if [[ -z "${LLM_PROVIDER:-}" ]]; then
-  echo "LLM_PROVIDER is not set. Add it to ${WORKSPACE_DIR}/.env (e.g. LLM_PROVIDER=openai)."
+  echo "LLM_PROVIDER is not set. Add it to ${WORKSPACE_DIR}/.env"
   exit 1
 fi
 
 if [[ -z "${LLM_MODEL:-}" ]]; then
-  echo "LLM_MODEL is not set. Add it to ${WORKSPACE_DIR}/.env (e.g. LLM_MODEL=gpt-4o)."
+  echo "LLM_MODEL is not set. Add it to ${WORKSPACE_DIR}/.env"
   exit 1
 fi
 
-# Resolve the config files that the `llm_nav_node` needs at startup.
-PARAMS_FILE="${WORKSPACE_DIR}/src/nav2_llm_demo/config/llm_nav_params.yaml"
-ROUTE_GRAPH_FILE="${WORKSPACE_DIR}/src/nav2_llm_demo/config/route_graph.json"
+# ---------------------------------------------------------------------------
+# Parse map config
+# ---------------------------------------------------------------------------
 
-if [[ -z "$NAV2_MAP" ]]; then
-  echo "NAV2_MAP is not set."
-  echo "Set NAV2_MAP to the map yaml Nav2 should use before launching."
+if [[ ! -f "$NAV_CONFIG" ]]; then
+  echo "Map config not found: $NAV_CONFIG"
   exit 1
 fi
 
-if [[ ! -f "$NAV2_MAP" ]]; then
-  echo "Nav2 map file not found: $NAV2_MAP"
+if [[ ! -f "$PARSE_SCRIPT" ]]; then
+  echo "Config parser not found: $PARSE_SCRIPT"
   exit 1
 fi
 
-if [[ -n "$NAV2_PARAMS_FILE" && ! -f "$NAV2_PARAMS_FILE" ]]; then
-  echo "Nav2 params file not found: $NAV2_PARAMS_FILE"
+echo "Loading config for map: $MAP_NAME"
+eval "$(python3 "$PARSE_SCRIPT" "$MAP_NAME" "$NAV_CONFIG")"
+
+if [[ -z "${MAP_YAML_PATH:-}" ]]; then
+  echo "Failed to parse config for map '$MAP_NAME'."
   exit 1
 fi
 
-if [[ ! -f "$PARAMS_FILE" ]]; then
-  echo "Missing params file: $PARAMS_FILE"
+if [[ ! -f "$MAP_YAML_PATH" ]]; then
+  echo "Map YAML not found: $MAP_YAML_PATH"
+  echo "Copy the map files from custom_map_builder/maps/ into src/nav2_llm_demo/maps/."
   exit 1
 fi
 
-if [[ ! -f "$ROUTE_GRAPH_FILE" ]]; then
-  echo "Missing route graph file: $ROUTE_GRAPH_FILE"
-  exit 1
-fi
+echo "  Map YAML : $MAP_YAML_PATH"
+echo "  Source   : ($SOURCE_X, $SOURCE_Y) yaw=$SOURCE_YAW"
+echo "  Dest     : ($DEST_X, $DEST_Y) yaw=$DEST_YAW"
 
-# Step 1: start the simulator world and robot model.
-echo "Starting Gazebo + TurtleBot3..."
-ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py &
+# ---------------------------------------------------------------------------
+# Step 1: Gazebo (empty world + TurtleBot3 spawned at source pose)
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "Starting Gazebo (empty world) + TurtleBot3 at source pose..."
+ros2 launch turtlebot3_gazebo empty_world.launch.py \
+  x_pose:="$SOURCE_X" \
+  y_pose:="$SOURCE_Y" \
+  &
 GAZEBO_PID=$!
 
-# Give Gazebo a moment to come up before bringing in navigation.
-sleep 5
+sleep "$GAZEBO_STARTUP_WAIT"
 
-# Step 2: start Nav2 and AMCL.
-# This handles localization and path execution
-echo "Starting Nav2 + AMCL..."
-# array for nav 2 params
-nav2_launch_args=(
-  use_sim_time:="$USE_SIM_TIME"
-  use_rviz:="$USE_RVIZ"
-  map:="$NAV2_MAP"
-)
+# ---------------------------------------------------------------------------
+# Step 2: Launch map_server + agent node
+# ---------------------------------------------------------------------------
 
-if [[ -n "$NAV2_PARAMS_FILE" ]]; then
-  nav2_launch_args+=(params_file:="$NAV2_PARAMS_FILE")
-fi
+echo "Starting map_server + LLM agent node (${LLM_PROVIDER}/${LLM_MODEL})..."
+ros2 launch nav2_llm_demo llm_agent.launch.py \
+  map_yaml:="$MAP_YAML_PATH" \
+  source_x:="$SOURCE_X" \
+  source_y:="$SOURCE_Y" \
+  source_yaw:="$SOURCE_YAW" \
+  dest_x:="$DEST_X" \
+  dest_y:="$DEST_Y" \
+  dest_yaw:="$DEST_YAW" \
+  use_sim_time:="$USE_SIM_TIME" \
+  launch_rviz:="$USE_RVIZ" \
+  &
+AGENT_PID=$!
 
-# launch nav2
-ros2 launch turtlebot3_navigation2 navigation2.launch.py \
-  "${nav2_launch_args[@]}" &
-NAV2_PID=$!
+sleep 3
 
-# Allow Nav2 lifecycle nodes time to initialize
-sleep "$NAV2_STARTUP_WAIT_SEC"
+# ---------------------------------------------------------------------------
+# Step 3: Stream status
+# ---------------------------------------------------------------------------
 
-# Seed AMCL with the robot's initial pose
-echo "Publishing initial pose for AMCL..."
-for ((i = 1; i <= INITIAL_POSE_RETRIES; i++)); do
-  echo "Initial pose attempt ${i}/${INITIAL_POSE_RETRIES}..."
-  ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
-    "$INITIAL_POSE_PAYLOAD"
-  sleep 1
-done
-
-# Step 3: start the LangChain-backed decision node.
-# This node listens for `/navigation_request`, asks the LLM for a route,
-# and sends goals to Nav2 one segment at a time.
-echo "Starting LLM decision node (${LLM_PROVIDER}/${LLM_MODEL})..."
-ros2 run nav2_llm_demo llm_nav_node \
-  --ros-args \
-  --params-file "$PARAMS_FILE" \
-  -p route_graph_path:="$ROUTE_GRAPH_FILE" &
-LLM_NAV_PID=$!
-
-# Give the node time to subscribe to NAV2
-sleep "$LLM_NODE_WAIT_SEC"
-
-# visibility: stream status updates in the same terminal session.
+echo ""
 echo "Streaming /navigation_status in the background..."
-ros2 topic echo /navigation_status &
+(
+  ros2 topic echo /navigation_status || true
+) &
 STATUS_PID=$!
 
-# Step 4: publish a mission request so the node immediately has work to do.
-if [[ -n "$MISSION_REQUEST" ]]; then
-  echo "Publishing mission request: $MISSION_REQUEST"
-  ros2 topic pub --once /navigation_request std_msgs/msg/String \
-    "{data: '$MISSION_REQUEST'}"
-fi
+# ---------------------------------------------------------------------------
+# Keep alive
+# ---------------------------------------------------------------------------
 
-# Keep the shell attached to the background jobs until the user stops the script.
-echo "System is running. Press Ctrl+C to stop Gazebo, Nav2, llm_nav_node, and status echo."
+echo ""
+echo "System is running.  Map: $MAP_NAME"
+echo "Press Ctrl+C to stop everything."
 wait

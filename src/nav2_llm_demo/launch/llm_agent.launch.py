@@ -51,9 +51,9 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
     launch_rviz = LaunchConfiguration("launch_rviz").perform(context)
     rviz_config = LaunchConfiguration("rviz_config").perform(context).strip()
     flow = LaunchConfiguration("flow").perform(context).strip() or "1"
-    if flow not in {"1", "2", "3", "4", "5"}:
+    if flow not in {"1", "2", "3", "4", "5", "6"}:
         raise RuntimeError(
-            f"flow must be 1, 2, 3, 4, or 5 (got {flow!r})"
+            f"flow must be 1, 2, 3, 4, 5, or 6 (got {flow!r})"
         )
     if not rviz_config:
         rviz_config = default_rviz_config
@@ -84,9 +84,11 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
 
     actions.append(SetEnvironmentVariable("LLM_FLOW", flow))
 
+    agent_executable = "llm_route_agent_node" if flow == "6" else "llm_agent_node"
+
     agent_node = Node(
         package="nav2_llm_demo",
-        executable="llm_agent_node",
+        executable=agent_executable,
         name="llm_agent_node",
         output="screen",
         emulate_tty=True,
@@ -239,6 +241,8 @@ def generate_launch_description() -> LaunchDescription:
                                           "4 = fixed gather/decide/execute/"
                                           "check graph (no ReAct freedom), "
                                           "5 = A* path planner + LLM "
-                                          "follower (most reliable)."),
+                                          "follower (most reliable), "
+                                          "6 = deterministic topology "
+                                          "graph route planner + executor."),
         OpaqueFunction(function=_launch_setup),
     ])

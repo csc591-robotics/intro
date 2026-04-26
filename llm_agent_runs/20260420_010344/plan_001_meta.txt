@@ -1,0 +1,38 @@
+Plan number: 1
+Reason: replan_after_route_failure_1
+
+Planning context:
+{
+  "reason": "replan_after_route_failure_1",
+  "controller_state": "REPLAN",
+  "controller_step": 1,
+  "last_plan_notes": "",
+  "pose": {
+    "x": 13.1,
+    "y": 11.338,
+    "yaw_deg": 165.1
+  },
+  "navigation_context": {
+    "distance_to_goal_m": 8.335,
+    "heading_error_deg": -55.0,
+    "forward_clearance_m": 0.5,
+    "left_clearance_m": 1.15,
+    "right_clearance_m": 0.65,
+    "recommended_step_m": 0.4,
+    "last_progress_m": null,
+    "blocked_streak": 0,
+    "in_known_free_space": true
+  },
+  "route_memory": {
+    "current_route_intent": "continue_route",
+    "failed_route_intents": [],
+    "route_failure_streak": 0,
+    "last_route_failure_reason": ""
+  }
+}
+
+LLM response:
+{
+  "route_intent": "take_left_branch",
+  "notes": "Left branch leads towards the destination."
+}
