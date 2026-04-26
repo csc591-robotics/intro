@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 27,
+  "role": "AIMessage",
+  "content": "[{'text': \"Good, I'm facing west again. Looking at the map, I can see the left edge of the map. The black wall between the two corridors seems to extend to the left edge. Let me look more carefully - there might be a passage on the far left side of the map. Let me move west to the left edge to find a gap.\", 'type': 'text'}, {'id': 'toolu_01GKVsma81wV1D6nEoqqHM6F', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 0.5}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "toolu_01GKVsma81wV1D6nEoqqHM6F",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 31,
+  "role": "AIMessage",
+  "content": "[{'text': \"Good, I'm now facing right again. I can see the robot is at the right side of the middle corridor. The green destination is in the upper-right area. Let me try moving right to see if there's a passage on the far right.\", 'type': 'text'}, {'id': 'toolu_01HeDvt5tdWcYJ1vYf5NbrQw', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 0.5}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 0.5
+      },
+      "id": "toolu_01HeDvt5tdWcYJ1vYf5NbrQw",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 9,
+  "role": "AIMessage",
+  "content": "[{'text': 'Good, continuing west along the corridor. Let me keep moving.', 'type': 'text'}, {'id': 'toolu_01CwVWvJP6B8xK7dHUnm7UqG', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01CwVWvJP6B8xK7dHUnm7UqG",
+      "type": "tool_call"
+    }
+  ]
+}

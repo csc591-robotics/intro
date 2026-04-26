@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 39,
+  "role": "AIMessage",
+  "content": "[{'text': \"Good, I'm now facing roughly east (18°). Let me move east along the corridor to find a passage south. I need to look for a vertical corridor that connects the two horizontal corridors.\", 'type': 'text'}, {'id': 'toolu_012dKjmDVoNmDvJZXQRBHf8K', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_012dKjmDVoNmDvJZXQRBHf8K",
+      "type": "tool_call"
+    }
+  ]
+}

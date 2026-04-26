@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 3,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (3.98, 7.87) facing right (0°). The destination is at (11.51, 13.67). I need to go right (+X) and then up (+Y). Let me move right along the white corridor first.\", 'type': 'text'}, {'id': 'toolu_01VoBAXHPRNhDByDN2LNtoyx', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01VoBAXHPRNhDByDN2LNtoyx",
+      "type": "tool_call"
+    }
+  ]
+}

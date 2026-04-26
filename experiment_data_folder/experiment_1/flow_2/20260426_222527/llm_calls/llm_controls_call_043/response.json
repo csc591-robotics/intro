@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 43,
+  "role": "AIMessage",
+  "content": "[{'text': \"Good, I'm now facing left (heading ~-172°, approximately 180°). Let me move left along the middle corridor to find a vertical passage going up.\", 'type': 'text'}, {'id': 'toolu_01RFw8WxY46iTEXsLLkrTJ5d', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01RFw8WxY46iTEXsLLkrTJ5d",
+      "type": "tool_call"
+    }
+  ]
+}
