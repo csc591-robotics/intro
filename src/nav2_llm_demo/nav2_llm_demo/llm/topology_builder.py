@@ -152,6 +152,7 @@ class DeterministicTopologyBuilder:
         special_node_connection_limit: int = 3,
         anchor_merge_distance_m: float = 0.75,
         preserve_junction_nodes: bool = True,
+        connect_line_of_sight_pairs: bool = True,
     ) -> None:
         self._occupancy_map = occupancy_map
         self._waypoint_spacing_m = max(0.25, waypoint_spacing_m)
@@ -159,6 +160,7 @@ class DeterministicTopologyBuilder:
         self._special_node_connection_limit = max(1, special_node_connection_limit)
         self._anchor_merge_distance_m = max(0.0, anchor_merge_distance_m)
         self._preserve_junction_nodes = preserve_junction_nodes
+        self._connect_line_of_sight_pairs = bool(connect_line_of_sight_pairs)
         self._edge_counter = 0
         self._waypoint_counter = 0
 
@@ -217,12 +219,18 @@ class DeterministicTopologyBuilder:
             graph = pre_simplify
             reverted_collapse = True
 
+        los_edges_added = 0
+        if self._connect_line_of_sight_pairs:
+            los_edges_added = self._connect_visible_node_pairs(graph)
+
         graph.metadata["build_stats"] = {
             "pre_nodes": len(pre_simplify.nodes),
             "pre_edges": len(pre_simplify.edges),
             "post_nodes": len(graph.nodes),
             "post_edges": len(graph.edges),
             "collapsed_reverted": reverted_collapse,
+            "line_of_sight_edges_added": los_edges_added,
+            "line_of_sight_enabled": self._connect_line_of_sight_pairs,
             "connectivity_ok": bool(
                 graph.find_path(graph.start_node_id, graph.goal_node_id)
             ),
@@ -289,6 +297,32 @@ class DeterministicTopologyBuilder:
             end_point=(end_node.x, end_node.y),
             polyline=sampled,
         )
+
+    def _connect_visible_node_pairs(self, graph: TopologyGraph) -> int:
+        node_ids = sorted(graph.nodes.keys())
+        added = 0
+        for idx, first_id in enumerate(node_ids):
+            first = graph.nodes[first_id]
+            for second_id in node_ids[idx + 1:]:
+                if graph.edge_between(first_id, second_id) is not None:
+                    continue
+                second = graph.nodes[second_id]
+                if not self._occupancy_map.is_segment_clear(
+                    (first.x, first.y),
+                    (second.x, second.y),
+                    robot_radius_m=self._robot_radius_m,
+                ):
+                    continue
+                self._add_segment_edge(
+                    graph,
+                    first_id,
+                    second_id,
+                    start_point=(first.x, first.y),
+                    end_point=(second.x, second.y),
+                    polyline=[(first.x, first.y), (second.x, second.y)],
+                )
+                added += 1
+        return added
 
     def _add_segment_edge(
         self,

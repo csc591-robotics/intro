@@ -84,6 +84,7 @@ class LlmAgentNode(Node):
         self.declare_parameter("node_reach_tolerance_m", 0.30)
         self.declare_parameter("graph_waypoint_spacing_m", 0.75)
         self.declare_parameter("anchor_merge_distance_m", 0.35)
+        self.declare_parameter("connect_line_of_sight_pairs", True)
         self.declare_parameter("max_agent_steps", 240)
         self.declare_parameter("max_replans", 5)
         self.declare_parameter("edge_stall_step_limit", 6)
@@ -113,6 +114,7 @@ class LlmAgentNode(Node):
         self._node_reach_tolerance_m = self._float("node_reach_tolerance_m")
         self._graph_waypoint_spacing_m = self._float("graph_waypoint_spacing_m")
         self._anchor_merge_distance_m = self._float("anchor_merge_distance_m")
+        self._connect_line_of_sight_pairs = self._bool("connect_line_of_sight_pairs")
         self._max_agent_steps = self._int("max_agent_steps")
         self._max_replans = self._int("max_replans")
         self._edge_stall_step_limit = self._int("edge_stall_step_limit")
@@ -139,6 +141,7 @@ class LlmAgentNode(Node):
             waypoint_spacing_m=self._graph_waypoint_spacing_m,
             robot_radius_m=self._robot_radius_m,
             anchor_merge_distance_m=self._anchor_merge_distance_m,
+            connect_line_of_sight_pairs=self._connect_line_of_sight_pairs,
         )
         self._topology_graph = builder.build(
             source_pose=(self._source_x, self._source_y),
