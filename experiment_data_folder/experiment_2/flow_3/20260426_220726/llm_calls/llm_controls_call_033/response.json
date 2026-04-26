@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 33,
+  "role": "AIMessage",
+  "content": "[{'text': 'Hmm, that rotated the wrong way — heading is now ~102° which is roughly north-northwest. Let me check the situation.', 'type': 'text'}, {'id': 'toolu_01Ka4FHa6Bph71hLzQcL3Qsd', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_situation', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_situation",
+      "args": {},
+      "id": "toolu_01Ka4FHa6Bph71hLzQcL3Qsd",
+      "type": "tool_call"
+    }
+  ]
+}

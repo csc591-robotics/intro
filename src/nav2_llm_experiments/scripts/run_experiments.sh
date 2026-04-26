@@ -37,14 +37,29 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-if [[ -n "${ROS_DISTRO:-}" && -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
-  # shellcheck disable=SC1091
-  source "/opt/ros/${ROS_DISTRO}/setup.bash"
-fi
+# Source ROS unconditionally. Falling back is critical — when this script
+# is launched from a `sudo su` shell or a minimal subshell, ROS_DISTRO may
+# be empty even though /opt/ros/<distro>/setup.bash exists. Without sourcing,
+# the orchestrator's child `ros2 run` / `ros2 bag` processes inherit a PATH
+# and PYTHONPATH that don't know about ros2cli, and they crash with
+# `No package metadata was found for ros2cli`.
+ROS_DISTRO_CANDIDATES=("${ROS_DISTRO:-}" humble jazzy iron rolling galactic foxy)
+for cand in "${ROS_DISTRO_CANDIDATES[@]}"; do
+  if [[ -n "$cand" && -f "/opt/ros/${cand}/setup.bash" ]]; then
+    set +u
+    # shellcheck disable=SC1090
+    source "/opt/ros/${cand}/setup.bash"
+    set -u
+    export ROS_DISTRO="$cand"
+    break
+  fi
+done
 
 if [[ -f "${WORKSPACE_ROOT}/install/setup.bash" ]]; then
+  set +u
   # shellcheck disable=SC1091
   source "${WORKSPACE_ROOT}/install/setup.bash"
+  set -u
 fi
 
 # Source .env (LLM_PROVIDER, LLM_MODEL, *_API_KEY, etc.) so the values

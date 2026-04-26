@@ -69,6 +69,12 @@ import yaml
 
 VALID_FLOWS = ("1", "2", "3", "4", "5")
 
+# When ``ros2`` is not on PATH, try these under ``/opt/ros/<name>/bin/`` first
+# if multiple distributions are installed.
+_ROS_DISTRO_TRY_ORDER = (
+    "humble", "jazzy", "iron", "rolling", "galactic", "foxy",
+)
+
 
 # ============================================================================
 # Helpers
@@ -473,6 +479,138 @@ def _git_commit(workspace: Path) -> str:
     return ""
 
 
+def _resolve_ros2_and_env(base: dict[str, str]) -> tuple[str, dict[str, str]]:
+    """Return an absolute ``ros2`` path and *base* with PATH fixed if needed.
+
+    ``Popen([\"ros2\", ...])`` raises :exc:`FileNotFoundError` when ROS was never
+    sourced — e.g. ``python -m nav2_llm_experiments.run_experiments`` instead of
+    ``run_experiments.sh``. We fall back to ``/opt/ros/<distro>/bin/ros2`` and
+    prepend that ``bin`` to ``PATH`` so the recorder and rosbag children start.
+    """
+    path_for_which = base.get("PATH")
+    ros2 = shutil.which("ros2", path=path_for_which)
+    if ros2:
+        return ros2, base
+
+    distro = (base.get("ROS_DISTRO") or os.environ.get("ROS_DISTRO") or "").strip()
+
+    candidates: list[Path] = []
+    if distro:
+        p = Path(f"/opt/ros/{distro}/bin/ros2")
+        if p.is_file():
+            candidates.append(p)
+
+    if not candidates:
+        try:
+            root = Path("/opt/ros")
+            if root.is_dir():
+                seen_names: set[str] = set()
+                for name in _ROS_DISTRO_TRY_ORDER:
+                    p = root / name / "bin" / "ros2"
+                    if p.is_file():
+                        candidates.append(p)
+                        seen_names.add(name)
+                for child in sorted(root.iterdir(), key=lambda x: x.name):
+                    if not child.is_dir() or child.name in seen_names:
+                        continue
+                    p = child / "bin" / "ros2"
+                    if p.is_file():
+                        candidates.append(p)
+        except OSError:
+            pass
+
+    for candidate in candidates:
+        bd = candidate.parent
+        out = dict(base)
+        sep = os.pathsep
+        old_path = out.get("PATH", "")
+        out["PATH"] = f"{bd}{sep}{old_path}" if old_path else str(bd)
+        chosen = bd.parent.name
+        if distro:
+            out.setdefault("ROS_DISTRO", distro)
+        elif chosen:
+            out.setdefault("ROS_DISTRO", chosen)
+        return str(candidate), out
+
+    raise RuntimeError(
+        "Could not find `ros2` on PATH or under /opt/ros/*/bin. "
+        "Source ROS 2 (e.g. source /opt/ros/humble/setup.bash), "
+        "source install/setup.bash, "
+        "or run: bash src/nav2_llm_experiments/scripts/run_experiments.sh"
+    )
+
+
+# Process names / argv fragments to reap before spawning a fresh sim.
+# Stale survivors from a Ctrl+C'd batch (or a crashed run) hold port 11345
+# (gzserver), keep an old turtlebot3_burger entity alive (so spawn_entity
+# fails with "already exists"), or hijack /odom and /cmd_vel from the
+# previous experiment — making the new run's robot appear frozen at the
+# *previous* run's last pose. We reap before every run_one() so each
+# experiment starts from a clean slate.
+_STALE_SIM_PATTERNS: tuple[str, ...] = (
+    "gzserver",
+    "gzclient",
+    "rviz2",
+    "llm_agent_node",
+    "recorder_node",
+    "ros2 bag record",
+    "ros2 bag",
+    "spawn_entity.py",
+    "robot_state_publisher",
+    "static_transform_publisher",
+    "lifecycle_manager",
+    "map_server",
+    "run_llm_nav.sh",
+)
+
+
+def _reap_stale_simulators(verbose: bool = True) -> None:
+    """Forcefully terminate leftover Gazebo/ROS sim processes from prior runs.
+
+    We try ``pkill -f`` (matches against the full command line) then
+    ``pkill`` (basename match) for each known pattern. Failures are
+    silent — the most common case is "no such process", which is exactly
+    what we want to ignore.
+    """
+    pkill = shutil.which("pkill")
+    if not pkill:
+        if verbose:
+            print(
+                "[orchestrator] pkill not on PATH; skipping pre-flight reap.",
+                flush=True,
+            )
+        return
+
+    reaped_any = False
+    for pat in _STALE_SIM_PATTERNS:
+        for argv in (
+            [pkill, "-9", "-f", pat],
+            [pkill, "-9", pat.split()[0]],
+        ):
+            try:
+                rc = subprocess.run(
+                    argv,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                ).returncode
+            except (OSError, subprocess.SubprocessError):
+                continue
+            # pkill returns 0 if it killed something, 1 if nothing matched.
+            if rc == 0:
+                reaped_any = True
+                if verbose:
+                    print(
+                        f"[orchestrator] reaped stale process matching: {pat}",
+                        flush=True,
+                    )
+                break
+
+    if reaped_any:
+        # Give the OS a moment to release port 11345 + tear down shared mem.
+        time.sleep(1.5)
+
+
 def _resolve_flow_llm(flow: str) -> tuple[str, str]:
     provider = (
         os.environ.get(f"FLOW{flow}_LLM_PROVIDER", "").strip()
@@ -483,6 +621,86 @@ def _resolve_flow_llm(flow: str) -> tuple[str, str]:
         or os.environ.get("LLM_MODEL", "").strip()
     )
     return provider, model
+
+
+def _augment_env_for_local_pkg(
+    env: dict[str, str], workspace: Path,
+) -> dict[str, str]:
+    """Make sure ``nav2_llm_experiments`` is discoverable by ``ros2`` children.
+
+    When the orchestrator is launched from a shell that didn't fully source
+    ``install/setup.bash`` (e.g. ``sudo su`` discards env, or the user
+    forgot to source after ``colcon build``), ``AMENT_PREFIX_PATH`` may
+    only contain ``/opt/ros/<distro>``. Then ``ros2 run nav2_llm_experiments
+    recorder_node`` fails with::
+
+        Package 'nav2_llm_experiments' not found
+
+    and the orchestrator hangs forever waiting for ``done.flag`` (only the
+    recorder writes it). We patch ``AMENT_PREFIX_PATH`` and ``PYTHONPATH``
+    here so children always see the local install — regardless of how the
+    operator's shell was set up.
+    """
+    install_dir = workspace / "install" / "nav2_llm_experiments"
+    if not install_dir.is_dir():
+        return env
+
+    out = dict(env)
+    sep = os.pathsep
+
+    pkg_marker = (
+        install_dir / "share" / "ament_index" / "resource_index"
+        / "packages" / "nav2_llm_experiments"
+    )
+    if pkg_marker.is_file():
+        prev = out.get("AMENT_PREFIX_PATH", "")
+        if str(install_dir) not in prev.split(sep):
+            out["AMENT_PREFIX_PATH"] = (
+                f"{install_dir}{sep}{prev}" if prev else str(install_dir)
+            )
+
+    py_site = install_dir / "lib" / "python3.10" / "site-packages"
+    if py_site.is_dir():
+        prev = out.get("PYTHONPATH", "")
+        if str(py_site) not in prev.split(sep):
+            out["PYTHONPATH"] = (
+                f"{py_site}{sep}{prev}" if prev else str(py_site)
+            )
+
+    bin_dir = install_dir / "lib" / "nav2_llm_experiments"
+    if bin_dir.is_dir():
+        prev = out.get("PATH", "")
+        if str(bin_dir) not in prev.split(sep):
+            out["PATH"] = f"{bin_dir}{sep}{prev}" if prev else str(bin_dir)
+
+    return out
+
+
+def _recorder_argv(
+    workspace: Path, ros2_exe: str, output_dir: Path,
+) -> list[str]:
+    """Return argv to spawn the recorder node.
+
+    Prefers invoking the installed entry-point script directly (which only
+    needs ``PYTHONPATH`` to be correct), and falls back to ``ros2 run``
+    when the install layout is unfamiliar.
+    """
+    direct = (
+        workspace / "install" / "nav2_llm_experiments"
+        / "lib" / "nav2_llm_experiments" / "recorder_node"
+    )
+    if direct.is_file() and os.access(direct, os.X_OK):
+        return [
+            sys.executable, str(direct),
+            "--ros-args",
+            "-p", f"output_dir:={output_dir}",
+        ]
+
+    return [
+        ros2_exe, "run", "nav2_llm_experiments", "recorder_node",
+        "--ros-args",
+        "-p", f"output_dir:={output_dir}",
+    ]
 
 
 def run_one(
@@ -509,6 +727,14 @@ def run_one(
     llm_calls_dir = flow_dir / "llm_calls"
     llm_calls_dir.mkdir(parents=True, exist_ok=True)
 
+    # ---- 0. Reap stale sim processes from prior runs -------------------
+    # Without this, a leftover gzserver from a previously Ctrl+C'd batch
+    # holds port 11345; the new gzserver crashes; spawn_entity then talks
+    # to the *old* gzserver where turtlebot3_burger already exists; the new
+    # agent's /cmd_vel goes nowhere; the user sees the robot stuck at the
+    # *previous* experiment's last pose (often the reverse-route pose).
+    _reap_stale_simulators(verbose=True)
+
     # ---- 1. Materialize temp map_poses.yaml ----------------------------
     temp_yaml = flow_dir / "map_poses_used.yaml"
     map_key, full_yaml = _materialize_temp_map_poses(
@@ -517,16 +743,15 @@ def run_one(
     _write_experiment_yaml(experiment, flow_dir / "experiment.yaml")
     _snapshot_map_files(map_poses_path, workspace, map_key, full_yaml, flow_dir)
 
+    ros2_exe, proc_env = _resolve_ros2_and_env(os.environ.copy())
+    proc_env = _augment_env_for_local_pkg(proc_env, workspace)
+
     # ---- 2. Spawn recorder ---------------------------------------------
     recorder_log = (flow_dir / "recorder.log").open("w")
     recorder = ManagedProc(
         "recorder",
-        argv=[
-            "ros2", "run", "nav2_llm_experiments", "recorder_node",
-            "--ros-args",
-            "-p", f"output_dir:={flow_dir}",
-        ],
-        env=os.environ.copy(),
+        argv=_recorder_argv(workspace, ros2_exe, flow_dir),
+        env=proc_env,
         stdout=recorder_log,
         stderr=subprocess.STDOUT,
     )
@@ -542,14 +767,14 @@ def run_one(
         bag_proc = ManagedProc(
             "rosbag",
             argv=[
-                "ros2", "bag", "record",
+                ros2_exe, "bag", "record",
                 "-o", str(bag_dir),
                 "/odom", "/scan", "/cmd_vel",
                 "/tf", "/tf_static",
                 "/navigation_status",
                 "/clock", "/map",
             ],
-            env=os.environ.copy(),
+            env=proc_env,
             stdout=bag_log,
             stderr=subprocess.STDOUT,
         )
@@ -571,7 +796,7 @@ def run_one(
             bag_proc.close_files()
         raise SystemExit(f"run_llm_nav.sh not found at {runner_path}")
 
-    env = os.environ.copy()
+    env = proc_env.copy()
     env["MAP_POSES_PATH"] = str(temp_yaml)
     env["LLM_RUN_DIR_OVERRIDE"] = str(llm_calls_dir)
     env["LLM_AGENT_MAX_STEPS"] = str(max_steps)

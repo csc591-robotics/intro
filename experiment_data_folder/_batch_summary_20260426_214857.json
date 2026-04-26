@@ -1,0 +1,18 @@
+[
+  {
+    "experiment_id": 1,
+    "flow": 5,
+    "outcome": "goal_reached",
+    "final_distance_to_goal_m": 0.082,
+    "total_llm_cycles": 41,
+    "wall_clock_sec": 205.766
+  },
+  {
+    "experiment_id": 2,
+    "flow": 5,
+    "outcome": "goal_reached",
+    "final_distance_to_goal_m": 0.052,
+    "total_llm_cycles": 43,
+    "wall_clock_sec": 247.349
+  }
+]

@@ -164,6 +164,12 @@ fi
 
 export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
 
+# Cap the LLM agent loop at 50 steps unless the caller (or the
+# experiment orchestrator) overrides it. Without this default the agent
+# parameter ``max_agent_steps`` falls through to ``0`` (unlimited),
+# which lets a misbehaving LLM spin forever.
+export LLM_AGENT_MAX_STEPS="${LLM_AGENT_MAX_STEPS:-50}"
+
 PARSER_ARGS=("$MAP_NAME_IN")
 if [[ -n "${MAP_POSES_PATH:-}" ]]; then
   PARSER_ARGS+=("$MAP_POSES_PATH")
@@ -212,6 +218,7 @@ fi
 echo "  TURTLEBOT3_MODEL      : ${TURTLEBOT3_MODEL}"
 echo "  Launch RViz           : ${LAUNCH_RVIZ}"
 echo "  LLM flow              : ${LLM_FLOW}  (logs -> intro/llm_agent_runs/flow_${LLM_FLOW}/<timestamp>/)"
+echo "  Max agent steps       : ${LLM_AGENT_MAX_STEPS}"
 FLOW_PROVIDER_VAR="FLOW${LLM_FLOW}_LLM_PROVIDER"
 FLOW_MODEL_VAR="FLOW${LLM_FLOW}_LLM_MODEL"
 EFFECTIVE_PROVIDER="${!FLOW_PROVIDER_VAR:-${LLM_PROVIDER}}"

@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 36,
+  "role": "AIMessage",
+  "content": "[{'text': 'Now heading is ~-85° which is roughly south. Let me check the situation.', 'type': 'text'}, {'id': 'toolu_01NamTuWYk7xv5snEoFyaEsA', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_situation', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_situation",
+      "args": {},
+      "id": "toolu_01NamTuWYk7xv5snEoFyaEsA",
+      "type": "tool_call"
+    }
+  ]
+}
