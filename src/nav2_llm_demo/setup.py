@@ -1,4 +1,3 @@
-import glob
 import os
 
 from setuptools import find_packages, setup
@@ -35,8 +34,6 @@ setup(
         ('share/' + package_name + '/maps', _collect_maps()),
         ('share/' + package_name + '/scripts', [
             'scripts/parse_nav_config.py',
-            'scripts/parse_map_poses.py',
-            'scripts/run_llm_nav.sh',
         ]),
         ('share/' + package_name + '/rviz', [
             'rviz/llm_agent.rviz',
@@ -62,6 +59,7 @@ setup(
     entry_points={
         'console_scripts': [
             'llm_agent_node = nav2_llm_demo.llm_agent_node:main',
+            'llm_route_agent_node = nav2_llm_demo.llm_route_agent_node:main',
         ],
     },
 )

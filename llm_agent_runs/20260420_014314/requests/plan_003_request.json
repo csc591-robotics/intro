@@ -1,0 +1,37 @@
+{
+  "reason": "replan_after_route_failure_30",
+  "system_prompt": "You are the global replanning module for a TurtleBot3 navigating a 2D occupancy-grid map.\n\nYou are not responsible for low-level motor actions. A deterministic local\ncontroller handles:\n- turning\n- short forward motion\n- backing up\n- bounded recovery\n\nYou are responsible for deciding the high-level route intent when navigation is\nstarting or when the current local strategy has failed.\n\nReturn exactly one JSON object with this schema:\n{\n  \"route_sequence\": [\n    \"continue_route | take_left_branch | take_right_branch | backtrack\"\n  ],\n  \"notes\": \"short one-sentence explanation\"\n}\n\nRules:\n- Output JSON only. Do not wrap it in markdown fences.\n- Prefer short notes.\n- Use failed-branch summaries to avoid retrying route choices that already failed.\n- Use the map image and structured context together.\n- Return a short route sequence of 1 to 4 actions.\n- If the robot is simply on a workable route, use \"continue_route\".\n- Use \"take_left_branch\" or \"take_right_branch\" only for route-level branch choices.\n- Use \"backtrack\" only when the current route has failed and the robot should retreat.\n- Do not choose recovery side, turn angle, step size, or any other low-level motion detail.\n",
+  "user_prompt": "Planning reason: replan_after_route_failure_30\nSource: (13.1001, 11.3377)\nDestination: (10.2383, 19.1664)\nPlanning context JSON:\n{\n  \"reason\": \"replan_after_route_failure_30\",\n  \"controller_state\": \"REPLAN\",\n  \"controller_step\": 30,\n  \"last_plan_notes\": \"Switch to the right branch due to previous left branch failure.\",\n  \"pose\": {\n    \"x\": 13.164,\n    \"y\": 11.794,\n    \"yaw_deg\": 7.2\n  },\n  \"navigation_context\": {\n    \"distance_to_goal_m\": 7.932,\n    \"heading_error_deg\": 104.4,\n    \"forward_clearance_m\": 1.15,\n    \"left_clearance_m\": 0.1,\n    \"right_clearance_m\": 1.15,\n    \"recommended_step_m\": 0.5,\n    \"last_progress_m\": 0.361,\n    \"blocked_streak\": 0,\n    \"in_known_free_space\": true\n  },\n  \"route_memory\": {\n    \"current_route_intent\": \"continue_route\",\n    \"route_plan_queue\": [],\n    \"failed_route_intents\": [\n      \"take_right_branch\"\n    ],\n    \"route_failure_streak\": 2,\n    \"last_route_failure_reason\": \"take_right_branch is not locally traversable\"\n  }\n}\n\nReturn the JSON decision now.",
+  "planning_context": {
+    "reason": "replan_after_route_failure_30",
+    "controller_state": "REPLAN",
+    "controller_step": 30,
+    "last_plan_notes": "Switch to the right branch due to previous left branch failure.",
+    "pose": {
+      "x": 13.164,
+      "y": 11.794,
+      "yaw_deg": 7.2
+    },
+    "navigation_context": {
+      "distance_to_goal_m": 7.932,
+      "heading_error_deg": 104.4,
+      "forward_clearance_m": 1.15,
+      "left_clearance_m": 0.1,
+      "right_clearance_m": 1.15,
+      "recommended_step_m": 0.5,
+      "last_progress_m": 0.361,
+      "blocked_streak": 0,
+      "in_known_free_space": true
+    },
+    "route_memory": {
+      "current_route_intent": "continue_route",
+      "route_plan_queue": [],
+      "failed_route_intents": [
+        "take_right_branch"
+      ],
+      "route_failure_streak": 2,
+      "last_route_failure_reason": "take_right_branch is not locally traversable"
+    }
+  },
+  "has_image": true
+}

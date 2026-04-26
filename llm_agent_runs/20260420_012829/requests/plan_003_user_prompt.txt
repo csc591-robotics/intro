@@ -1,0 +1,37 @@
+Planning reason: replan_after_route_failure_22
+Source: (13.1001, 11.3377)
+Destination: (10.2383, 19.1664)
+Planning context JSON:
+{
+  "reason": "replan_after_route_failure_22",
+  "controller_state": "REPLAN",
+  "controller_step": 22,
+  "last_plan_notes": "Take the right branch to avoid the blocked path ahead.",
+  "pose": {
+    "x": 12.993,
+    "y": 11.597,
+    "yaw_deg": -56.5
+  },
+  "navigation_context": {
+    "distance_to_goal_m": 8.055,
+    "heading_error_deg": 166.5,
+    "forward_clearance_m": 1.15,
+    "left_clearance_m": 1.05,
+    "right_clearance_m": 1.15,
+    "recommended_step_m": 0.5,
+    "last_progress_m": 0.482,
+    "blocked_streak": 7,
+    "in_known_free_space": true
+  },
+  "route_memory": {
+    "current_route_intent": "take_right_branch",
+    "route_plan_queue": [],
+    "failed_route_intents": [
+      "take_right_branch"
+    ],
+    "route_failure_streak": 1,
+    "last_route_failure_reason": "bounded local recovery exhausted"
+  }
+}
+
+Return the JSON decision now.

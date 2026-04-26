@@ -16,7 +16,7 @@
 # case (no .world is associated with the map).
 #
 # Usage:
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME> [--flow 1|2|3|4|5]
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME> [--flow 1|2|3|4|5|6]
 #
 # Examples:
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse              # flow 1 (default)
@@ -24,6 +24,7 @@
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 3     # ReAct + LiDAR
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 4     # fixed gather/decide cycle
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 5     # A* + LLM follower
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 6     # deterministic topology planner/executor
 #   LLM_FLOW=5 bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse   # via env
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
 #
@@ -33,13 +34,13 @@
 #   LAUNCH_RVIZ=false     Skip RViz.
 #   USE_SIM_TIME=false    Use wall clock instead of /clock.
 #   TURTLEBOT3_MODEL      burger (default) | waffle | waffle_pi
-#   LLM_FLOW=1|2|3|4|5    Which agent flow to use; --flow CLI arg overrides this.
+#   LLM_FLOW=1|2|3|4|5|6  Which agent flow to use; --flow CLI arg overrides this.
 # ──────────────────────────────────────────────────────────────────────────
 
 set -eo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5]" >&2
+  echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5|6]" >&2
   exit 1
 fi
 
@@ -57,12 +58,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5]" >&2
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5|6]" >&2
       exit 0
       ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5]" >&2
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5|6]" >&2
       exit 1
       ;;
   esac
@@ -70,9 +71,9 @@ done
 
 LLM_FLOW="${LLM_FLOW:-1}"
 case "${LLM_FLOW}" in
-  1|2|3|4|5) ;;
+  1|2|3|4|5|6) ;;
   *)
-    echo "ERROR: --flow must be 1, 2, 3, 4, or 5 (got '${LLM_FLOW}')." >&2
+    echo "ERROR: --flow must be 1, 2, 3, 4, 5, or 6 (got '${LLM_FLOW}')." >&2
     exit 1
     ;;
 esac
@@ -121,12 +122,16 @@ if [[ -z "${LLM_PROVIDER:-}" || -z "${LLM_MODEL:-}" ]]; then
   exit 1
 fi
 
-# Pre-flight: confirm the llm_agent_node executable was actually installed by
+# Pre-flight: confirm the selected node executable was actually installed by
 # colcon. If not, we'd otherwise see Gazebo come up while the agent silently
 # never starts.
-LLM_AGENT_EXE="${WORKSPACE_ROOT}/install/nav2_llm_demo/lib/nav2_llm_demo/llm_agent_node"
+LLM_AGENT_EXE_NAME="llm_agent_node"
+if [[ "${LLM_FLOW}" == "6" ]]; then
+  LLM_AGENT_EXE_NAME="llm_route_agent_node"
+fi
+LLM_AGENT_EXE="${WORKSPACE_ROOT}/install/nav2_llm_demo/lib/nav2_llm_demo/${LLM_AGENT_EXE_NAME}"
 if [[ ! -x "$LLM_AGENT_EXE" ]]; then
-  echo "ERROR: llm_agent_node executable not found at $LLM_AGENT_EXE" >&2
+  echo "ERROR: ${LLM_AGENT_EXE_NAME} executable not found at $LLM_AGENT_EXE" >&2
   echo "       Run: colcon build --packages-select nav2_llm_demo" >&2
   exit 1
 fi
