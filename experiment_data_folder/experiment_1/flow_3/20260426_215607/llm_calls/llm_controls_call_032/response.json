@@ -1,0 +1,6 @@
+{
+  "llm_call_num": 32,
+  "role": "AIMessage",
+  "content": "Front is CAUTION at 0.60 m—proceed forward with reduced speed, do not stop. Front-left and front-right are also CAUTION (0.68 m and 0.59 m respectively); the robot is in a narrow corridor or between obstacles. Maintain forward motion at low speed while monitoring for further closure; if front drops below 0.40 m, stop and rotate to rear sectors (all clear).",
+  "tool_calls": []
+}

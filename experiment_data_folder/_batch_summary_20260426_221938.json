@@ -1,0 +1,18 @@
+[
+  {
+    "experiment_id": 1,
+    "flow": 3,
+    "outcome": "agent_error",
+    "final_distance_to_goal_m": 5.074,
+    "total_llm_cycles": 51,
+    "wall_clock_sec": 671.385
+  },
+  {
+    "experiment_id": 2,
+    "flow": 3,
+    "outcome": "agent_error",
+    "final_distance_to_goal_m": 3.928,
+    "total_llm_cycles": 49,
+    "wall_clock_sec": 724.462
+  }
+]

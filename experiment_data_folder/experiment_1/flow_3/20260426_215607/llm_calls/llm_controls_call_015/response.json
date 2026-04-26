@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 15,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (8.07, 7.87) facing east (yaw ~0°). The destination is at (11.51, 13.67). Looking at the map:\\n- The green marker is in the **upper corridor** (top white band)\\n- I'm in the **middle corridor** \\n- I need to find a vertical gap in the black wall above me to go north\\n\\nThe destination X is 11.51, so I need to go further east first, then find a northward passage. Let me continue east.\", 'type': 'text'}, {'id': 'toolu_018Zo4pbZPgY2XP97nJH9mhU', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_018Zo4pbZPgY2XP97nJH9mhU",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 14,
+  "role": "AIMessage",
+  "content": "[{'text': 'Good, continuing west. Front is completely clear. The robot is making progress toward the left side. I need to keep moving west to get closer to the left edge where there might be a passage south to the middle corridor where the green destination is. Let me continue.', 'type': 'text'}, {'id': 'toolu_01JNdqBbAqwT88zHGKfBcp1f', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01JNdqBbAqwT88zHGKfBcp1f",
+      "type": "tool_call"
+    }
+  ]
+}

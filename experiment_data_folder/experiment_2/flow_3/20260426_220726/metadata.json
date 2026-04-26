@@ -1,0 +1,51 @@
+{
+  "experiment_id": 2,
+  "experiment_name": "warehouse_reverse_route",
+  "map": "warehouse",
+  "map_key": "warehouse.pgm",
+  "flow": 3,
+  "llm_provider": "anthropic",
+  "llm_model": "claude-sonnet-4-6",
+  "source_world": {
+    "x": 2.8222,
+    "y": 1.9102,
+    "z": 0.0,
+    "yaw_rad": 0.0
+  },
+  "destination_world": {
+    "x": -4.7094,
+    "y": -3.889,
+    "z": 0.0,
+    "yaw_rad": 0.0
+  },
+  "destination_map": {
+    "x": 3.9812735068013714,
+    "y": 7.8669857676995765
+  },
+  "world_to_map_offset": [
+    8.690673506801371,
+    11.755985767699576
+  ],
+  "max_steps": 50,
+  "started_at": "2026-04-26T22:07:28Z",
+  "ended_at": "2026-04-26T22:19:32Z",
+  "wall_clock_sec": 724.462,
+  "completion_signal": "done_flag",
+  "completion_detail": "Agent terminated after 1 steps. Final: Graph failed: RateLimitError: Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error', 'message': \"This request would exceed your organization's rate limit of 30,000 input tokens per minute (org: 90b3501d-1a4b-4529-a661-1ac4c7ce253e, model: claude-sonnet-4-6). For details, refer to: https://docs.claude.com/en/api/rate-limits. You can see the response headers for current usage. Please reduce the prompt length or the maximum tokens requested, or try again later. You may also contact sales at https://claude.com/contact-sales to discuss your options for a rate limit increase.\"}, 'request_id': 'req_011CaTAE4WNVas7YiMeXPFPs'}",
+  "outcome": "agent_error",
+  "final_distance_to_goal_m": 3.928,
+  "total_llm_cycles": 49,
+  "total_actions": 17,
+  "total_pose_samples_odom": 20844,
+  "total_pose_samples_map": 7188,
+  "total_scan_samples": 3543,
+  "total_cmd_vel_samples": 1669,
+  "rosbag_recorded": true,
+  "rviz_disabled": false,
+  "gazebo_gui_disabled": false,
+  "host": "vclvm178-146.vcl.ncsu.edu",
+  "platform": "Linux-5.15.0-174-generic-x86_64-with-glibc2.35",
+  "ros_distro": "humble",
+  "git_commit": "",
+  "launch_rc": 0
+}

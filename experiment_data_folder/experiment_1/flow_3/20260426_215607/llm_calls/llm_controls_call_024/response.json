@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 24,
+  "role": "AIMessage",
+  "content": "[{'text': \"At (11.12, 7.87). I'm now roughly aligned with the destination's x-coordinate (11.51). The green marker is directly above me in the upper corridor. I need to turn **left (north, +Y direction)** to head toward the destination. Let me rotate 90° counter-clockwise (left) to face north, then look for a passage through the black wall.\", 'type': 'text'}, {'id': 'toolu_01YaJphrsWZxyhGmBURcifmY', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': 90}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "toolu_01YaJphrsWZxyhGmBURcifmY",
+      "type": "tool_call"
+    }
+  ]
+}
