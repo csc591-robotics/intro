@@ -1,0 +1,51 @@
+{
+  "experiment_id": 2,
+  "experiment_name": "warehouse_reverse_route",
+  "map": "warehouse",
+  "map_key": "warehouse.pgm",
+  "flow": 5,
+  "llm_provider": "anthropic",
+  "llm_model": "claude-sonnet-4-6",
+  "source_world": {
+    "x": 2.8222,
+    "y": 1.9102,
+    "z": 0.0,
+    "yaw_rad": 0.0
+  },
+  "destination_world": {
+    "x": -4.7094,
+    "y": -3.889,
+    "z": 0.0,
+    "yaw_rad": 0.0
+  },
+  "destination_map": {
+    "x": 3.9812735068013714,
+    "y": 7.8669857676995765
+  },
+  "world_to_map_offset": [
+    8.690673506801371,
+    11.755985767699576
+  ],
+  "max_steps": 50,
+  "started_at": "2026-04-26T21:44:44Z",
+  "ended_at": "2026-04-26T21:48:51Z",
+  "wall_clock_sec": 247.349,
+  "completion_signal": "done_flag",
+  "completion_detail": "GOAL REACHED after 43 steps! Distance: 0.04 m (tolerance: 0.30 m)",
+  "outcome": "goal_reached",
+  "final_distance_to_goal_m": 0.052,
+  "total_llm_cycles": 43,
+  "total_actions": 43,
+  "total_pose_samples_odom": 6927,
+  "total_pose_samples_map": 2428,
+  "total_scan_samples": 1177,
+  "total_cmd_vel_samples": 2228,
+  "rosbag_recorded": true,
+  "rviz_disabled": false,
+  "gazebo_gui_disabled": false,
+  "host": "vclvm178-146.vcl.ncsu.edu",
+  "platform": "Linux-5.15.0-174-generic-x86_64-with-glibc2.35",
+  "ros_distro": "humble",
+  "git_commit": "",
+  "launch_rc": 0
+}
