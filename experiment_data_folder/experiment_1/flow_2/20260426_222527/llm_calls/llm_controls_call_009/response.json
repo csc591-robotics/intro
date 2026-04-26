@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 9,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm continuing along the middle corridor. The green destination appears to be in the upper-right area. I need to find a vertical passage going up. Let me continue moving right.\", 'type': 'text'}, {'id': 'toolu_01LdtjXRPX4BaYt1amApeU9X', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01LdtjXRPX4BaYt1amApeU9X",
+      "type": "tool_call"
+    }
+  ]
+}

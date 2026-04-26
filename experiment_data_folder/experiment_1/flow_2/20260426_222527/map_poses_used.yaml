@@ -1,0 +1,159 @@
+frame: gazebo_world
+maps:
+  default.pgm:
+    sidecar: null
+    source: null
+    destination: null
+    route_graph: null
+  diamond_blocked.pgm:
+    sidecar: null
+    source:
+      position:
+        x: 13.1001
+        y: 11.3377
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.991511
+        w: 0.130025
+      yaw_rad: 2.88
+    destination:
+      position:
+        x: 10.2383
+        y: 19.1664
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.723957
+        w: 0.689845
+      yaw_rad: 1.61904
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: 13.1001
+          y: 11.3377
+          yaw: 2.88
+          description: "Robot spawn \u2014 left side of the diamond map"
+        goal:
+          x: 10.2383
+          y: 19.1664
+          yaw: 1.61904
+          description: "Destination \u2014 upper area of the diamond map"
+      edges:
+      - from: start
+        to: goal
+      goal_aliases:
+        goal:
+        - goal
+        destination:
+        - goal
+        end:
+        - goal
+  diamond_path.pgm:
+    sidecar: null
+    source: null
+    destination: null
+    route_graph: null
+  y_path.pgm:
+    sidecar: null
+    source: null
+    destination: null
+    route_graph: null
+  warehouse.pgm:
+    sidecar: src/world_to_map/maps/warehouse.world_map.yaml
+    source:
+      position:
+        x: -4.7094
+        y: -3.889
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+      yaw_rad: 0.0
+    destination:
+      position:
+        x: 2.8222
+        y: 1.9102
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+      yaw_rad: 0.0
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: -4.7094
+          y: -3.889
+          yaw: 0.0
+          description: Robot spawn point in the warehouse aisle
+        goal:
+          x: 2.8222
+          y: 1.9102
+          yaw: 0.0
+          description: Mission destination in the warehouse
+      edges:
+      - from: start
+        to: goal
+      goal_aliases:
+        goal:
+        - goal
+        destination:
+        - goal
+        end:
+        - goal
+  workshop_example.pgm:
+    sidecar: src/world_to_map/maps/workshop_example.world_map.yaml
+    source:
+      position:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+      yaw_rad: 0.0
+    destination: null
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: 0.0
+          y: 0.0
+          yaw: 0.0
+          description: Robot spawn point in the workshop
+      edges: []
+      goal_aliases: {}
+  test_zone.pgm:
+    sidecar: src/world_to_map/maps/test_zone.world_map.yaml
+    source:
+      position:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+      yaw_rad: 0.0
+    destination: null
+    route_graph:
+      start_checkpoint: start
+      checkpoints:
+        start:
+          x: 0.0
+          y: 0.0
+          yaw: 0.0
+          description: Robot spawn point in the test zone
+      edges: []
+      goal_aliases: {}

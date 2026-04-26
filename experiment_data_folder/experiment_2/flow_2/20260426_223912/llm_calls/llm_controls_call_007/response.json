@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 7,
+  "role": "AIMessage",
+  "content": "[{'text': 'Good progress! The robot moved west. I can see the white corridor continues to the left. Let me keep moving west.', 'type': 'text'}, {'id': 'toolu_01JnFQvUTGiStxXqx4uQZUZL', 'caller': {'type': 'direct'}, 'input': {'distance_meters': 1.0}, 'name': 'move_forward', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "move_forward",
+      "args": {
+        "distance_meters": 1.0
+      },
+      "id": "toolu_01JnFQvUTGiStxXqx4uQZUZL",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 21,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (4.06, 12.12), roughly aligned with the destination's x-coordinate (3.98). The green destination is directly below me in the lower corridor. I can see the black wall between the two corridors. I need to find a passage south. \\n\\nLooking at the map carefully, the black obstacle between the two white corridors seems to be solid. Let me try rotating south (clockwise -90°) and see if I can move south to find a gap.\", 'type': 'text'}, {'id': 'toolu_011rwgukEFH2UKkujAyyH8fc', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': -90}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": -90
+      },
+      "id": "toolu_011rwgukEFH2UKkujAyyH8fc",
+      "type": "tool_call"
+    }
+  ]
+}

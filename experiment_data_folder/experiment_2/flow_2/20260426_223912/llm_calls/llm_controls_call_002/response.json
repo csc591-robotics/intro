@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 2,
+  "role": "AIMessage",
+  "content": "[{'text': 'I can see the map clearly. The RED dot (robot) is on the right side of a white corridor, facing left (west). The GREEN destination is in a lower white corridor to the left. I need to navigate left and then down through the corridors.\\n\\nLet me get the exact pose first to plan better.', 'type': 'text'}, {'id': 'toolu_01FPraTPBwFCyZL1cQC78DnR', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_robot_pose', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_robot_pose",
+      "args": {},
+      "id": "toolu_01FPraTPBwFCyZL1cQC78DnR",
+      "type": "tool_call"
+    }
+  ]
+}
