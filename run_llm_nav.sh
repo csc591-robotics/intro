@@ -5,7 +5,7 @@ set -euo pipefail
 # LLM Agent Navigation Runner
 #
 # Usage:
-#   bash ./run_llm_nav.sh MAP_NAME
+#   bash ./run_llm_nav.sh MAP_NAME [--flow 1|2|3|4|5|6]
 #   bash ./run_llm_nav.sh diamond_blocked
 #
 # MAP_NAME is looked up in src/nav2_llm_demo/maps/nav_config.yaml.
@@ -15,15 +15,43 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$SCRIPT_DIR}"
 
-# The map name is the first argument (required).
+# The map name is the first argument (required). Optional --flow follows.
 MAP_NAME="${1:-}"
 if [[ -z "$MAP_NAME" ]]; then
-  echo "Usage: bash ./run_llm_nav.sh MAP_NAME"
+  echo "Usage: bash ./run_llm_nav.sh MAP_NAME [--flow 1|2|3|4|5|6]"
   echo ""
   echo "MAP_NAME must match an entry in src/nav2_llm_demo/maps/nav_config.yaml."
   echo "Example: bash ./run_llm_nav.sh diamond_blocked"
   exit 1
 fi
+shift || true
+
+LLM_FLOW="${LLM_FLOW:-1}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --flow)
+      LLM_FLOW="${2:-}"
+      shift 2
+      ;;
+    --flow=*)
+      LLM_FLOW="${1#*=}"
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Usage: bash ./run_llm_nav.sh MAP_NAME [--flow 1|2|3|4|5|6]"
+      exit 1
+      ;;
+  esac
+done
+
+case "${LLM_FLOW}" in
+  1|2|3|4|5|6) ;;
+  *)
+    echo "ERROR: --flow must be 1, 2, 3, 4, 5, or 6 (got '${LLM_FLOW}')."
+    exit 1
+    ;;
+esac
 
 NAV_CONFIG="${WORKSPACE_DIR}/src/nav2_llm_demo/maps/nav_config.yaml"
 PARSE_SCRIPT="${WORKSPACE_DIR}/src/nav2_llm_demo/scripts/parse_nav_config.py"
@@ -126,6 +154,7 @@ fi
 echo "  Map YAML : $MAP_YAML_PATH"
 echo "  Source   : ($SOURCE_X, $SOURCE_Y) yaw=$SOURCE_YAW"
 echo "  Dest     : ($DEST_X, $DEST_Y) yaw=$DEST_YAW"
+echo "  Flow     : $LLM_FLOW"
 
 # ---------------------------------------------------------------------------
 # Step 1: Gazebo (empty world + TurtleBot3 spawned at source pose)
@@ -154,6 +183,7 @@ ros2 launch nav2_llm_demo llm_agent.launch.py \
   dest_x:="$DEST_X" \
   dest_y:="$DEST_Y" \
   dest_yaw:="$DEST_YAW" \
+  flow:="$LLM_FLOW" \
   use_sim_time:="$USE_SIM_TIME" \
   launch_rviz:="$USE_RVIZ" \
   &

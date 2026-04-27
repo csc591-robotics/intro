@@ -1,3 +1,3 @@
 [submodule "world_files/gazebo_models_worlds_collection"]
-path = world_files/gazebo_models_worlds_collection
-	url = git@github.com:REAL_ORG/REAL_REPO.git
+	path = world_files/gazebo_models_worlds_collection
+	url = git@github.com:leonhartyao/gazebo_models_worlds_collection.git
