@@ -9,6 +9,7 @@ import json
 import math
 import os
 import shutil
+import textwrap
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -152,7 +153,14 @@ def _draw_map_background(ax, meta: dict) -> bool:
     y0 = float(origin[1])
     res = float(resolution)
     extent = [x0, x0 + width * res, y0, y0 + height * res]
-    ax.imshow(image, cmap="gray", origin="lower", extent=extent, alpha=0.85)
+    ax.imshow(
+        image,
+        cmap="gray",
+        origin="lower",
+        extent=extent,
+        alpha=1.0,
+        interpolation="nearest",
+    )
     return True
 
 
@@ -195,13 +203,15 @@ def _plot_bar(
 ) -> None:
     if not labels:
         return
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar(labels, values)
+    wrapped_labels = ["\n".join(textwrap.wrap(label, width=18)) for label in labels]
+    fig_width = max(10, 2.8 * len(labels))
+    fig, ax = plt.subplots(figsize=(fig_width, 6.5))
+    ax.bar(wrapped_labels, values)
     ax.set_title(title)
     ax.set_ylabel(ylabel)
-    ax.tick_params(axis="x", rotation=45)
+    ax.tick_params(axis="x", rotation=0, labelsize=10)
     fig.tight_layout()
-    fig.savefig(output, dpi=150)
+    fig.savefig(output, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -217,7 +227,6 @@ def _plot_trajectory(run_dir: Path, meta: dict, output_dir: Path) -> None:
 
     dest = meta.get("destination_map", {})
     fig, ax = plt.subplots(figsize=(6, 6))
-    _draw_map_background(ax, meta)
     ax.plot(xs, ys, linewidth=1.5, label="trajectory")
     ax.scatter([xs[0]], [ys[0]], color="blue", label="start", zorder=3)
     ax.scatter([xs[-1]], [ys[-1]], color="red", label="end", zorder=3)
@@ -247,7 +256,6 @@ def _plot_experiment_trajectory_overlay(metadata_rows: list[dict], experiment_id
         return
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    _draw_map_background(ax, rows[0])
     plotted_any = False
 
     for meta in sorted(rows, key=lambda item: int(item["flow"])):
@@ -270,7 +278,7 @@ def _plot_experiment_trajectory_overlay(metadata_rows: list[dict], experiment_id
     if "x" in dest and "y" in dest:
         ax.scatter([dest["x"]], [dest["y"]], color="black", marker="*", s=140, label="goal", zorder=4)
 
-    ax.set_title(f"Experiment {experiment_id} Trajectories by Method")
+    ax.set_title("Trajectories by Method")
     ax.set_xlabel("map x (m)")
     ax.set_ylabel("map y (m)")
     ax.axis("equal")
@@ -300,7 +308,6 @@ def _plot_trajectory_grid(metadata_rows: list[dict], output: Path, title: str) -
     for ax, meta in zip(axes_flat, rows):
         run_dir = Path(meta["_run_dir"])
         xs, ys = _trajectory_xy(run_dir)
-        _draw_map_background(ax, meta)
         color = FLOW_COLORS.get(str(meta["flow"]), None)
         ax.plot(xs, ys, linewidth=1.8, color=color)
         ax.scatter([xs[0]], [ys[0]], color=color, s=24, zorder=3)
@@ -361,6 +368,30 @@ def _path_efficiency(meta: dict) -> float:
         return 0.0
     straight_line = _straight_line_goal_distance_m(meta)
     return straight_line / path_length
+
+
+def _count_llm_calls_for_run(run_dir: Path, meta: dict) -> int:
+    llm_calls_dir = run_dir / "llm_calls"
+    if not llm_calls_dir.is_dir():
+        return int(meta.get("total_llm_cycles", 0) or 0)
+
+    flow = int(meta.get("flow", 0) or 0)
+    if flow == 7:
+        request_count = len(list((llm_calls_dir / "requests").glob("plan_*_request.json")))
+        meta_count = len(list(llm_calls_dir.glob("plan_*_meta.txt")))
+        counted = max(request_count, meta_count)
+        if counted > 0:
+            return counted
+
+    legacy_count = len(
+        [
+            p for p in llm_calls_dir.iterdir()
+            if p.is_dir() and p.name.startswith("llm_controls_call_")
+        ]
+    )
+    if legacy_count > 0:
+        return legacy_count
+    return int(meta.get("total_llm_cycles", 0) or 0)
 
 
 def _infer_source_from_pose(run_dir: Path, meta: dict) -> None:
@@ -480,35 +511,35 @@ def _write_method_comparison_outputs(
     _plot_bar(
         labels,
         runtimes,
-        f"Experiment {experiment_id} Runtime by Method",
+        "Runtime by Method",
         "Runtime (s)",
         comparison_dir / "runtime_by_method.png",
     )
     _plot_bar(
         labels,
         path_lengths,
-        f"Experiment {experiment_id} Distance Traveled by Method",
+        "Distance Traveled by Method",
         "Distance traveled (m)",
         comparison_dir / "distance_traveled_by_method.png",
     )
     _plot_bar(
         labels,
         final_distances,
-        f"Experiment {experiment_id} Final Distance to Goal by Method",
+        "Final Distance to Goal by Method",
         "Final distance to goal (m)",
         comparison_dir / "final_distance_to_goal_by_method.png",
     )
     _plot_bar(
         labels,
         llm_cycles,
-        f"Experiment {experiment_id} LLM Cycles by Method",
+        "LLM Cycles by Method",
         "LLM cycles (count)",
         comparison_dir / "llm_cycles_by_method.png",
     )
     _plot_bar(
         labels,
         path_efficiencies,
-        f"Experiment {experiment_id} Path Efficiency by Method",
+        "Path Efficiency by Method",
         "Path efficiency (straight-line distance / traveled distance)",
         comparison_dir / "path_efficiency_by_method.png",
     )
@@ -520,7 +551,7 @@ def _write_method_comparison_outputs(
     _plot_trajectory_grid(
         selected,
         comparison_dir / "trajectory_grid_by_method.png",
-        f"Experiment {experiment_id} Working Methods Trajectory Maps",
+        "Working Methods Trajectory Maps",
     )
     _write_csv_table(selected, comparison_dir / "working_methods_5_7_summary.csv")
     _write_experiment_summary(selected, comparison_dir / "summary.json")
@@ -614,6 +645,7 @@ def main() -> None:
         meta["_run_dir"] = str(run_dir)
         meta["_path_length_m"] = _path_length_m(run_dir)
         _infer_source_from_pose(run_dir, meta)
+        meta["total_llm_cycles"] = _count_llm_calls_for_run(run_dir, meta)
         meta["_path_efficiency"] = _path_efficiency(meta)
         metadata_rows.append(meta)
 
