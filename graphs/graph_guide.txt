@@ -1,0 +1,38 @@
+Graphs produced by `plot_experiments.py`
+
+Outputs are split into:
+- `graphs/output/experiment_1/`
+- `graphs/output/experiment_2/`
+
+1. `distance_traveled_by_run.png`
+- Total path length traveled by the robot.
+- Computed from `pose_map_stream.jsonl`.
+
+2. `runtime_by_run.png`
+- Total wall-clock runtime for each run.
+- Uses `wall_clock_sec` from `metadata.json`.
+
+3. `trajectory_exp_<experiment>_flow_<flow>.png`
+- One trajectory plot per run.
+- Includes map obstacles, start, end, and goal.
+
+4. `trajectories_overlay.png`
+- One overlay for that experiment only.
+- Compares the flows from that experiment on the same map.
+
+5. `trajectory_grid.png`
+- A tiled figure with every run from that experiment.
+- Useful when you want all trajectory maps from one experiment in one image.
+
+6. `llm_cycles_by_run.png`
+- Total LLM control cycles for each run.
+- Uses `total_llm_cycles` from `metadata.json`.
+
+7. `distance_vs_runtime.png`
+- Scatter plot of distance traveled vs runtime.
+- Useful for seeing whether slower runs also moved farther.
+
+8. `path_efficiency_by_run.png`
+- Straight-line start-to-goal distance divided by actual traveled distance.
+- Higher is more direct.
+- This is a directness metric, not a true map-optimality metric.

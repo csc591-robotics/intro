@@ -1,0 +1,28 @@
+[2026-04-27T00:09:49Z] LLM agent node started. Waiting for odometry...
+[2026-04-27T00:09:56Z] Odometry received. Starting navigation from (3.98, 7.87) to (11.51, 13.67)
+[2026-04-27T00:10:06Z] Agent step 1/50
+[2026-04-27T00:10:11Z]   -> Nav2: distance_remaining=13.87 m, recoveries=0, eta=54.3s
+[2026-04-27T00:10:11Z] Debug images saved to: /workspace/experiment_data_folder/experiment_1/flow_6/20260427_000944/llm_calls
+[2026-04-27T00:10:11Z] Agent step 2/50
+[2026-04-27T00:10:16Z]   -> Nav2: distance_remaining=12.62 m, recoveries=0, eta=50.6s
+[2026-04-27T00:10:16Z] Agent step 3/50
+[2026-04-27T00:10:21Z]   -> Nav2: distance_remaining=11.37 m, recoveries=0, eta=44.7s
+[2026-04-27T00:10:21Z] Agent step 4/50
+[2026-04-27T00:10:26Z]   -> Nav2: distance_remaining=10.12 m, recoveries=0, eta=39.8s
+[2026-04-27T00:10:26Z] Agent step 5/50
+[2026-04-27T00:10:31Z]   -> Nav2: distance_remaining=8.89 m, recoveries=0, eta=35.0s
+[2026-04-27T00:10:31Z] Agent step 6/50
+[2026-04-27T00:10:36Z]   -> Nav2: distance_remaining=7.62 m, recoveries=0, eta=29.8s
+[2026-04-27T00:10:36Z] Agent step 7/50
+[2026-04-27T00:10:41Z]   -> Nav2: distance_remaining=6.29 m, recoveries=0, eta=24.6s
+[2026-04-27T00:10:41Z] Agent step 8/50
+[2026-04-27T00:10:46Z]   -> Nav2: distance_remaining=5.02 m, recoveries=0, eta=19.8s
+[2026-04-27T00:10:46Z] Agent step 9/50
+[2026-04-27T00:10:51Z]   -> Nav2: distance_remaining=3.77 m, recoveries=0, eta=15.0s
+[2026-04-27T00:10:51Z] Agent step 10/50
+[2026-04-27T00:10:56Z]   -> Nav2: distance_remaining=2.52 m, recoveries=0, eta=9.9s
+[2026-04-27T00:10:56Z] Agent step 11/50
+[2026-04-27T00:11:01Z]   -> Nav2: distance_remaining=1.24 m, recoveries=0, eta=4.8s
+[2026-04-27T00:11:01Z] Agent step 12/50
+[2026-04-27T00:11:06Z]   -> Nav2: distance_remaining=0.23 m, recoveries=0, eta=0.0s
+[2026-04-27T00:11:06Z] GOAL REACHED after 12 steps! Distance: 0.24 m (tolerance: 0.30 m)

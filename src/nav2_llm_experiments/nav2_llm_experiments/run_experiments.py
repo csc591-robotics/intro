@@ -67,7 +67,7 @@ from typing import Any
 import yaml
 
 
-VALID_FLOWS = ("1", "2", "3", "4", "5")
+VALID_FLOWS = ("1", "2", "3", "4", "5", "6")
 
 # When ``ros2`` is not on PATH, try these under ``/opt/ros/<name>/bin/`` first
 # if multiple distributions are installed.
@@ -612,6 +612,11 @@ def _reap_stale_simulators(verbose: bool = True) -> None:
 
 
 def _resolve_flow_llm(flow: str) -> tuple[str, str]:
+    if str(flow) == "6":
+        # Flow 6 is the pure Nav2 baseline — no LLM is involved. Surface
+        # that explicitly in metadata.json so downstream comparisons don't
+        # accidentally treat it like an LLM run.
+        return "nav2", "navigate_to_pose"
     provider = (
         os.environ.get(f"FLOW{flow}_LLM_PROVIDER", "").strip()
         or os.environ.get("LLM_PROVIDER", "").strip()

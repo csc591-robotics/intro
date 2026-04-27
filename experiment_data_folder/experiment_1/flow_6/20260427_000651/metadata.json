@@ -1,0 +1,51 @@
+{
+  "experiment_id": 1,
+  "experiment_name": "warehouse_default_route",
+  "map": "warehouse",
+  "map_key": "warehouse.pgm",
+  "flow": 6,
+  "llm_provider": "nav2",
+  "llm_model": "navigate_to_pose",
+  "source_world": {
+    "x": -4.7094,
+    "y": -3.889,
+    "z": 0.0,
+    "yaw_rad": 0.0
+  },
+  "destination_world": {
+    "x": 2.8222,
+    "y": 1.9102,
+    "z": 0.0,
+    "yaw_rad": 0.0
+  },
+  "destination_map": {
+    "x": 11.512873506801371,
+    "y": 13.666185767699575
+  },
+  "world_to_map_offset": [
+    8.690673506801371,
+    11.755985767699576
+  ],
+  "max_steps": 50,
+  "started_at": "2026-04-27T00:06:54Z",
+  "ended_at": "2026-04-27T00:08:04Z",
+  "wall_clock_sec": 70.6,
+  "completion_signal": "done_flag",
+  "completion_detail": "Agent exhausted 50 steps. Distance to goal: 2.44 m.",
+  "outcome": "max_steps_exhausted",
+  "final_distance_to_goal_m": 2.346,
+  "total_llm_cycles": 0,
+  "total_actions": 0,
+  "total_pose_samples_odom": 1770,
+  "total_pose_samples_map": 659,
+  "total_scan_samples": 300,
+  "total_cmd_vel_samples": 1011,
+  "rosbag_recorded": false,
+  "rviz_disabled": true,
+  "gazebo_gui_disabled": false,
+  "host": "vclvm178-146.vcl.ncsu.edu",
+  "platform": "Linux-5.15.0-174-generic-x86_64-with-glibc2.35",
+  "ros_distro": "humble",
+  "git_commit": "",
+  "launch_rc": 0
+}

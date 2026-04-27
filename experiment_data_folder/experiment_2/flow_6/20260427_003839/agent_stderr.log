@@ -1,0 +1,11 @@
+/workspace/src/nav2_llm_demo/scripts/run_llm_nav.sh: line 148: /tmp/llm_import_err: Permission denied
+ERROR: nav2_llm_demo.llm failed to import (LLM_FLOW=6):
+
+If the error mentions an unsupported LLM_FLOW, the installed
+package is stale. Rebuild the workspace and re-source:
+  colcon build --packages-select nav2_llm_demo
+  source install/setup.bash
+
+If a langchain/provider import is missing, run:
+  pip install langchain langchain-core langgraph Pillow numpy
+  pip install langchain-anthropic

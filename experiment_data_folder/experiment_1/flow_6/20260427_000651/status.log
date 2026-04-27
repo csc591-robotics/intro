@@ -1,0 +1,103 @@
+[2026-04-27T00:07:04Z] Odometry received. Starting navigation from (3.98, 7.87) to (11.51, 13.67)
+[2026-04-27T00:07:14Z] Agent step 1/50
+[2026-04-27T00:07:15Z]   -> Nav2: distance_remaining=15.17 m, recoveries=0, eta=60.8s
+[2026-04-27T00:07:15Z] Debug images saved to: /workspace/experiment_data_folder/experiment_1/flow_6/20260427_000651/llm_calls
+[2026-04-27T00:07:15Z] Agent step 2/50
+[2026-04-27T00:07:16Z]   -> Nav2: distance_remaining=14.62 m, recoveries=0, eta=57.5s
+[2026-04-27T00:07:16Z] Agent step 3/50
+[2026-04-27T00:07:17Z]   -> Nav2: distance_remaining=14.37 m, recoveries=0, eta=57.1s
+[2026-04-27T00:07:17Z] Agent step 4/50
+[2026-04-27T00:07:18Z]   -> Nav2: distance_remaining=14.12 m, recoveries=0, eta=56.2s
+[2026-04-27T00:07:18Z] Agent step 5/50
+[2026-04-27T00:07:19Z]   -> Nav2: distance_remaining=13.87 m, recoveries=0, eta=55.1s
+[2026-04-27T00:07:19Z] Agent step 6/50
+[2026-04-27T00:07:20Z]   -> Nav2: distance_remaining=13.62 m, recoveries=0, eta=54.7s
+[2026-04-27T00:07:20Z] Agent step 7/50
+[2026-04-27T00:07:21Z]   -> Nav2: distance_remaining=13.37 m, recoveries=0, eta=52.3s
+[2026-04-27T00:07:21Z] Agent step 8/50
+[2026-04-27T00:07:22Z]   -> Nav2: distance_remaining=13.12 m, recoveries=0, eta=52.2s
+[2026-04-27T00:07:22Z] Agent step 9/50
+[2026-04-27T00:07:23Z]   -> Nav2: distance_remaining=12.87 m, recoveries=0, eta=50.6s
+[2026-04-27T00:07:23Z] Agent step 10/50
+[2026-04-27T00:07:24Z]   -> Nav2: distance_remaining=12.62 m, recoveries=0, eta=50.4s
+[2026-04-27T00:07:24Z] Agent step 11/50
+[2026-04-27T00:07:25Z]   -> Nav2: distance_remaining=12.37 m, recoveries=0, eta=49.4s
+[2026-04-27T00:07:25Z] Agent step 12/50
+[2026-04-27T00:07:26Z]   -> Nav2: distance_remaining=12.12 m, recoveries=0, eta=48.4s
+[2026-04-27T00:07:26Z] Agent step 13/50
+[2026-04-27T00:07:27Z]   -> Nav2: distance_remaining=11.87 m, recoveries=0, eta=47.2s
+[2026-04-27T00:07:27Z] Agent step 14/50
+[2026-04-27T00:07:28Z]   -> Nav2: distance_remaining=11.62 m, recoveries=0, eta=46.4s
+[2026-04-27T00:07:28Z] Agent step 15/50
+[2026-04-27T00:07:29Z]   -> Nav2: distance_remaining=11.37 m, recoveries=0, eta=45.7s
+[2026-04-27T00:07:29Z] Agent step 16/50
+[2026-04-27T00:07:30Z]   -> Nav2: distance_remaining=11.12 m, recoveries=0, eta=44.1s
+[2026-04-27T00:07:30Z] Agent step 17/50
+[2026-04-27T00:07:31Z]   -> Nav2: distance_remaining=10.87 m, recoveries=0, eta=43.5s
+[2026-04-27T00:07:31Z] Agent step 18/50
+[2026-04-27T00:07:32Z]   -> Nav2: distance_remaining=10.62 m, recoveries=0, eta=42.4s
+[2026-04-27T00:07:32Z] Agent step 19/50
+[2026-04-27T00:07:33Z]   -> Nav2: distance_remaining=10.37 m, recoveries=0, eta=41.6s
+[2026-04-27T00:07:33Z] Agent step 20/50
+[2026-04-27T00:07:34Z]   -> Nav2: distance_remaining=10.12 m, recoveries=0, eta=40.7s
+[2026-04-27T00:07:34Z] Agent step 21/50
+[2026-04-27T00:07:35Z]   -> Nav2: distance_remaining=9.87 m, recoveries=0, eta=39.4s
+[2026-04-27T00:07:35Z] Agent step 22/50
+[2026-04-27T00:07:36Z]   -> Nav2: distance_remaining=9.59 m, recoveries=0, eta=38.5s
+[2026-04-27T00:07:36Z] Agent step 23/50
+[2026-04-27T00:07:37Z]   -> Nav2: distance_remaining=9.37 m, recoveries=0, eta=37.2s
+[2026-04-27T00:07:37Z] Agent step 24/50
+[2026-04-27T00:07:38Z]   -> Nav2: distance_remaining=9.12 m, recoveries=0, eta=36.0s
+[2026-04-27T00:07:38Z] Agent step 25/50
+[2026-04-27T00:07:39Z]   -> Nav2: distance_remaining=8.87 m, recoveries=0, eta=35.5s
+[2026-04-27T00:07:39Z] Agent step 26/50
+[2026-04-27T00:07:40Z]   -> Nav2: distance_remaining=8.62 m, recoveries=0, eta=34.7s
+[2026-04-27T00:07:40Z] Agent step 27/50
+[2026-04-27T00:07:41Z]   -> Nav2: distance_remaining=8.37 m, recoveries=0, eta=33.4s
+[2026-04-27T00:07:41Z] Agent step 28/50
+[2026-04-27T00:07:42Z]   -> Nav2: distance_remaining=8.12 m, recoveries=0, eta=32.1s
+[2026-04-27T00:07:42Z] Agent step 29/50
+[2026-04-27T00:07:43Z]   -> Nav2: distance_remaining=7.84 m, recoveries=0, eta=31.6s
+[2026-04-27T00:07:43Z] Agent step 30/50
+[2026-04-27T00:07:44Z]   -> Nav2: distance_remaining=7.59 m, recoveries=0, eta=30.9s
+[2026-04-27T00:07:44Z] Agent step 31/50
+[2026-04-27T00:07:45Z]   -> Nav2: distance_remaining=7.34 m, recoveries=0, eta=29.4s
+[2026-04-27T00:07:45Z] Agent step 32/50
+[2026-04-27T00:07:46Z]   -> Nav2: distance_remaining=7.09 m, recoveries=0, eta=27.9s
+[2026-04-27T00:07:46Z] Agent step 33/50
+[2026-04-27T00:07:47Z]   -> Nav2: distance_remaining=6.87 m, recoveries=0, eta=26.7s
+[2026-04-27T00:07:47Z] Agent step 34/50
+[2026-04-27T00:07:48Z]   -> Nav2: distance_remaining=6.59 m, recoveries=0, eta=25.8s
+[2026-04-27T00:07:48Z] Agent step 35/50
+[2026-04-27T00:07:49Z]   -> Nav2: distance_remaining=6.29 m, recoveries=0, eta=24.4s
+[2026-04-27T00:07:49Z] Agent step 36/50
+[2026-04-27T00:07:50Z]   -> Nav2: distance_remaining=6.02 m, recoveries=0, eta=23.8s
+[2026-04-27T00:07:50Z] Agent step 37/50
+[2026-04-27T00:07:51Z]   -> Nav2: distance_remaining=5.76 m, recoveries=0, eta=23.4s
+[2026-04-27T00:07:51Z] Agent step 38/50
+[2026-04-27T00:07:52Z]   -> Nav2: distance_remaining=5.51 m, recoveries=0, eta=21.5s
+[2026-04-27T00:07:52Z] Agent step 39/50
+[2026-04-27T00:07:53Z]   -> Nav2: distance_remaining=5.24 m, recoveries=0, eta=20.8s
+[2026-04-27T00:07:53Z] Agent step 40/50
+[2026-04-27T00:07:54Z]   -> Nav2: distance_remaining=4.99 m, recoveries=0, eta=20.0s
+[2026-04-27T00:07:54Z] Agent step 41/50
+[2026-04-27T00:07:55Z]   -> Nav2: distance_remaining=4.74 m, recoveries=0, eta=18.9s
+[2026-04-27T00:07:55Z] Agent step 42/50
+[2026-04-27T00:07:56Z]   -> Nav2: distance_remaining=4.49 m, recoveries=0, eta=17.9s
+[2026-04-27T00:07:56Z] Agent step 43/50
+[2026-04-27T00:07:57Z]   -> Nav2: distance_remaining=4.24 m, recoveries=0, eta=16.9s
+[2026-04-27T00:07:57Z] Agent step 44/50
+[2026-04-27T00:07:58Z]   -> Nav2: distance_remaining=3.99 m, recoveries=0, eta=15.8s
+[2026-04-27T00:07:58Z] Agent step 45/50
+[2026-04-27T00:07:59Z]   -> Nav2: distance_remaining=3.74 m, recoveries=0, eta=14.6s
+[2026-04-27T00:07:59Z] Agent step 46/50
+[2026-04-27T00:08:00Z]   -> Nav2: distance_remaining=3.49 m, recoveries=0, eta=13.9s
+[2026-04-27T00:08:00Z] Agent step 47/50
+[2026-04-27T00:08:01Z]   -> Nav2: distance_remaining=3.24 m, recoveries=0, eta=12.8s
+[2026-04-27T00:08:01Z] Agent step 48/50
+[2026-04-27T00:08:02Z]   -> Nav2: distance_remaining=2.99 m, recoveries=0, eta=12.0s
+[2026-04-27T00:08:02Z] Agent step 49/50
+[2026-04-27T00:08:03Z]   -> Nav2: distance_remaining=2.74 m, recoveries=0, eta=10.9s
+[2026-04-27T00:08:03Z] Agent step 50/50
+[2026-04-27T00:08:04Z]   -> Nav2: distance_remaining=2.49 m, recoveries=0, eta=9.7s
+[2026-04-27T00:08:04Z] Agent exhausted 50 steps. Distance to goal: 2.44 m.

@@ -12,16 +12,25 @@ environment variable (default ``"1"``):
   plus a ``get_lidar_summary`` tool and a combined ``get_situation`` tool
   (image + LiDAR-analyst text in one ToolMessage). The LLM still chooses
   freely (ReAct freedom).
-* ``LLM_FLOW=4`` -> :mod:`nav2_llm_demo.llm.flow_4` -- fixed graph
-  gather/decide/execute/check cycle (no ReAct freedom).
+* ``LLM_FLOW=4`` -> :mod:`nav2_llm_demo.llm.flow_4` -- FIXED graph (no
+  ReAct freedom). Each cycle: gather situation (Python; no LLM) -> decide
+  (LLM with ONLY move_forward/rotate, tool_choice=any) -> execute ->
+  check goal (< 1.0 m). The LLM cannot "look without acting".
 * ``LLM_FLOW=5`` -> :mod:`nav2_llm_demo.llm.flow_5` -- A* path planner
-  + LLM follower over a precomputed line.
-* ``LLM_FLOW=6`` -> :mod:`nav2_llm_demo.llm.flow_6` -- deterministic
-  topology graph execution with LLM route planning (used by
-  ``llm_route_agent_node``).
+  runs ONCE at init on the inflated PGM and produces a polyline of
+  waypoints. The LLM follows the magenta line cycle by cycle with the
+  bearing pre-computed for it ("rotate X" or "move_forward Y"). No
+  LiDAR; no per-cycle planning. Most reliable on real maps.
+* ``LLM_FLOW=6`` -> :mod:`nav2_llm_demo.llm.flow_6` -- pure Nav2
+  navigator. No LLM at all: a ``NavigateToPose`` action client
+  dispatches a single goal to the Nav2 BT navigator and reports
+  ``distance_remaining`` until ``STATUS_SUCCEEDED`` /
+  ``STATUS_ABORTED``. Used as a deterministic baseline.
 
-Flows 1-5 expose ``initialize/step`` for ``llm_agent_node``.
-Flow 6 exposes ``plan(...)`` for ``llm_route_agent_node``.
+All flows expose a ``build_agent()`` factory that returns an object with
+the same minimal surface (``initialize``, ``step``,
+``goal_reached_in_last_step``, ``run_dir``) so the ROS node never needs
+per-flow conditionals.
 """
 
 from __future__ import annotations

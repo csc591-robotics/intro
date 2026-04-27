@@ -1,0 +1,68 @@
+{
+  "run_count": 9,
+  "runs": [
+    {
+      "label": "exp1-f2",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_2/20260426_222527",
+      "outcome": "agent_error",
+      "flow": 2,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f3",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_3/20260426_215607",
+      "outcome": "agent_error",
+      "flow": 3,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f5",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_5/20260426_214107",
+      "outcome": "goal_reached",
+      "flow": 5,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f6",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_6/20260426_235845",
+      "outcome": "crashed",
+      "flow": 6,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f6",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_6/20260426_235933",
+      "outcome": "agent_error",
+      "flow": 6,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f6",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_6/20260427_000237",
+      "outcome": "agent_error",
+      "flow": 6,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f6",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_6/20260427_000651",
+      "outcome": "max_steps_exhausted",
+      "flow": 6,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f6",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_6/20260427_000944",
+      "outcome": "goal_reached",
+      "flow": 6,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-f6",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_6/20260427_003836",
+      "outcome": "crashed",
+      "flow": 6,
+      "experiment_id": 1
+    }
+  ]
+}

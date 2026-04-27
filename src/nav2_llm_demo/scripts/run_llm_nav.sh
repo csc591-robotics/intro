@@ -24,7 +24,7 @@
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 3     # ReAct + LiDAR
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 4     # fixed gather/decide cycle
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 5     # A* + LLM follower
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 6     # deterministic topology planner/executor
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 6     # pure Nav2 baseline (no LLM)
 #   LLM_FLOW=5 bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse   # via env
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
 #
@@ -115,23 +115,21 @@ if [[ -n "$ENV_FILE" ]]; then
   set +a
 fi
 
-if [[ -z "${LLM_PROVIDER:-}" || -z "${LLM_MODEL:-}" ]]; then
+if [[ "${LLM_FLOW}" == "6" ]]; then
+  echo "Flow 6 selected: pure Nav2 baseline; skipping LLM provider checks."
+elif [[ -z "${LLM_PROVIDER:-}" || -z "${LLM_MODEL:-}" ]]; then
   echo "ERROR: LLM_PROVIDER and LLM_MODEL must be set." >&2
   echo "       Add them to ${WORKSPACE_ROOT}/.env or export them before running." >&2
   echo "       (See ${WORKSPACE_ROOT}/.env.example for an example.)" >&2
   exit 1
 fi
 
-# Pre-flight: confirm the selected node executable was actually installed by
+# Pre-flight: confirm the llm_agent_node executable was actually installed by
 # colcon. If not, we'd otherwise see Gazebo come up while the agent silently
 # never starts.
-LLM_AGENT_EXE_NAME="llm_agent_node"
-if [[ "${LLM_FLOW}" == "6" ]]; then
-  LLM_AGENT_EXE_NAME="llm_route_agent_node"
-fi
-LLM_AGENT_EXE="${WORKSPACE_ROOT}/install/nav2_llm_demo/lib/nav2_llm_demo/${LLM_AGENT_EXE_NAME}"
+LLM_AGENT_EXE="${WORKSPACE_ROOT}/install/nav2_llm_demo/lib/nav2_llm_demo/llm_agent_node"
 if [[ ! -x "$LLM_AGENT_EXE" ]]; then
-  echo "ERROR: ${LLM_AGENT_EXE_NAME} executable not found at $LLM_AGENT_EXE" >&2
+  echo "ERROR: llm_agent_node executable not found at $LLM_AGENT_EXE" >&2
   echo "       Run: colcon build --packages-select nav2_llm_demo" >&2
   exit 1
 fi

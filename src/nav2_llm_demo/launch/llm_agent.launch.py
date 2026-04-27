@@ -34,6 +34,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
     SetEnvironmentVariable,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -84,11 +85,43 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
 
     actions.append(SetEnvironmentVariable("LLM_FLOW", flow))
 
-    agent_executable = "llm_route_agent_node" if flow == "6" else "llm_agent_node"
+    if flow == "6":
+        nav2_bringup_share = get_package_share_directory("nav2_bringup")
+        nav2_launch = os.path.join(
+            nav2_bringup_share, "launch", "navigation_launch.py",
+        )
+        # Use a flow_6-specific params file: the only delta vs the stock
+        # ``nav2_params.yaml`` is ``robot_base_frame: base_footprint``
+        # in both costmaps + the BT navigator. The TurtleBot3 burger
+        # spawned by ``world_to_map.launch.py`` only has ``odom ->
+        # base_footprint`` published by Gazebo's diff-drive plugin
+        # (``base_link`` only exists on the namespaced side of the
+        # raw URDF that ``robot_state_publisher`` loads), so Nav2's
+        # default ``robot_base_frame: base_link`` would block
+        # local-costmap activation.
+        nav2_params = os.path.join(
+            pkg_share, "config", "nav2_params_flow6.yaml",
+        )
+        # Delay Nav2 bringup so Gazebo has time to spawn the robot and
+        # start publishing odom -> base_footprint before Nav2's costmaps
+        # try to configure. Without this delay, the local costmap can't
+        # find the robot frame, lifecycle activation fails, and the BT
+        # navigator rejects the very first goal.
+        actions.append(TimerAction(
+            period=10.0,
+            actions=[IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(nav2_launch),
+                launch_arguments={
+                    "use_sim_time": use_sim_time_bool_str,
+                    "autostart": "true",
+                    "params_file": nav2_params,
+                }.items(),
+            )],
+        ))
 
     agent_node = Node(
         package="nav2_llm_demo",
-        executable=agent_executable,
+        executable="llm_agent_node",
         name="llm_agent_node",
         output="screen",
         emulate_tty=True,
@@ -234,7 +267,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("launch_rviz", default_value="true"),
         DeclareLaunchArgument("rviz_config", default_value=""),
         DeclareLaunchArgument("flow", default_value="1",
-                              description="LLM agent flow: 1 = custom loop "
+                              description="Agent flow: 1 = custom loop "
                                           "(default), 2 = LangGraph "
                                           "create_react_agent, 3 = same "
                                           "as 2 + LiDAR summary tool, "
@@ -242,7 +275,7 @@ def generate_launch_description() -> LaunchDescription:
                                           "check graph (no ReAct freedom), "
                                           "5 = A* path planner + LLM "
                                           "follower (most reliable), "
-                                          "6 = deterministic topology "
-                                          "graph route planner + executor."),
+                                          "6 = pure Nav2 NavigateToPose "
+                                          "baseline (no LLM)."),
         OpaqueFunction(function=_launch_setup),
     ])
