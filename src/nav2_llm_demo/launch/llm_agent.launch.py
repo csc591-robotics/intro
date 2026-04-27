@@ -52,9 +52,9 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
     launch_rviz = LaunchConfiguration("launch_rviz").perform(context)
     rviz_config = LaunchConfiguration("rviz_config").perform(context).strip()
     flow = LaunchConfiguration("flow").perform(context).strip() or "1"
-    if flow not in {"1", "2", "3", "4", "5", "6"}:
+    if flow not in {"1", "2", "3", "4", "5", "6", "7"}:
         raise RuntimeError(
-            f"flow must be 1, 2, 3, 4, 5, or 6 (got {flow!r})"
+            f"flow must be 1, 2, 3, 4, 5, 6, or 7 (got {flow!r})"
         )
     if not rviz_config:
         rviz_config = default_rviz_config
@@ -119,9 +119,15 @@ def _launch_setup(context, *_args, **_kwargs) -> List:
             )],
         ))
 
+    # Flow 7 has its own ROS executable (LLM route planner over a topology
+    # graph + hand-rolled rotate/forward executor). Flows 1-6 share the
+    # default ``llm_agent_node`` (which already handles the ``initialize/
+    # step`` agent surface and, for flow 6, a Nav2 NavigateToPose client).
+    agent_executable = "llm_route_agent_node" if flow == "7" else "llm_agent_node"
+
     agent_node = Node(
         package="nav2_llm_demo",
-        executable="llm_agent_node",
+        executable=agent_executable,
         name="llm_agent_node",
         output="screen",
         emulate_tty=True,
@@ -276,6 +282,10 @@ def generate_launch_description() -> LaunchDescription:
                                           "5 = A* path planner + LLM "
                                           "follower (most reliable), "
                                           "6 = pure Nav2 NavigateToPose "
-                                          "baseline (no LLM)."),
+                                          "baseline (no LLM), "
+                                          "7 = LLM route planner over a "
+                                          "deterministic topology graph + "
+                                          "hand-rolled rotate/forward "
+                                          "executor."),
         OpaqueFunction(function=_launch_setup),
     ])

@@ -63,6 +63,7 @@ setup(
     entry_points={
         'console_scripts': [
             'llm_agent_node = nav2_llm_demo.llm_agent_node:main',
+            'llm_route_agent_node = nav2_llm_demo.llm_route_agent_node:main',
         ],
     },
 )

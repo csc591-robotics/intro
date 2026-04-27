@@ -1,6 +1,6 @@
 """LLM helpers for vision-based agent navigation.
 
-Six flows are available; the active one is picked by the ``LLM_FLOW``
+Seven flows are available; the active one is picked by the ``LLM_FLOW``
 environment variable (default ``"1"``):
 
 * ``LLM_FLOW=1`` -> :mod:`nav2_llm_demo.llm.flow_1` -- the original custom
@@ -26,11 +26,19 @@ environment variable (default ``"1"``):
   dispatches a single goal to the Nav2 BT navigator and reports
   ``distance_remaining`` until ``STATUS_SUCCEEDED`` /
   ``STATUS_ABORTED``. Used as a deterministic baseline.
+* ``LLM_FLOW=7`` -> :mod:`nav2_llm_demo.llm.flow_7` -- LLM route
+  planner over a deterministic topology graph extracted from the
+  occupancy map. The LLM picks a node path; a hand-rolled controller
+  in :mod:`nav2_llm_demo.llm_route_agent_node` drives each edge with
+  rotate/forward steps, marks edges blocked when traversal fails, and
+  re-plans. Exposes ``plan(...)`` instead of the ``initialize/step``
+  tool-loop surface.
 
-All flows expose a ``build_agent()`` factory that returns an object with
-the same minimal surface (``initialize``, ``step``,
-``goal_reached_in_last_step``, ``run_dir``) so the ROS node never needs
-per-flow conditionals.
+Flows 1-6 expose a ``build_agent()`` factory returning an
+``initialize``/``step``/``goal_reached_in_last_step``/``run_dir`` agent
+consumed by ``llm_agent_node``. Flow 7 also exposes ``build_agent()``
+but the returned object exposes ``plan(...)`` and is consumed by
+``llm_route_agent_node``.
 """
 
 from __future__ import annotations
@@ -43,7 +51,9 @@ from .map_renderer import render_annotated_map, render_full_map
 
 _FLOW = os.environ.get("LLM_FLOW", "1").strip() or "1"
 
-if _FLOW == "6":
+if _FLOW == "7":
+    from .flow_7 import build_agent  # noqa: F401
+elif _FLOW == "6":
     from .flow_6 import build_agent  # noqa: F401
 elif _FLOW == "5":
     from .flow_5 import build_agent  # noqa: F401
@@ -58,7 +68,7 @@ elif _FLOW == "1":
 else:
     raise RuntimeError(
         f"LLM_FLOW={_FLOW!r} is not supported. "
-        "Set LLM_FLOW to 1, 2, 3, 4, 5, or 6."
+        "Set LLM_FLOW to 1, 2, 3, 4, 5, 6, or 7."
     )
 
 

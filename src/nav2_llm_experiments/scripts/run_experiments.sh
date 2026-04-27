@@ -13,7 +13,7 @@
 #   bash src/nav2_llm_experiments/scripts/run_experiments.sh \
 #       [--config <path>] \
 #       [--map-poses <path>] \
-#       [--flow 1,2,3,4,5,6] \
+#       [--flow 1,2,3,4,5,6,7] \
 #       [--experiment 1,3,5] \
 #       [--output-dir <path>] \
 #       [--no-rosbag] \
@@ -33,6 +33,9 @@
 #
 #   # Pure Nav2 baseline (no LLM) for every experiment
 #   bash src/nav2_llm_experiments/scripts/run_experiments.sh --flow 6
+#
+#   # LLM route planner over a topology graph (flow 7)
+#   bash src/nav2_llm_experiments/scripts/run_experiments.sh --flow 7
 # ──────────────────────────────────────────────────────────────────────────
 
 set -eo pipefail
