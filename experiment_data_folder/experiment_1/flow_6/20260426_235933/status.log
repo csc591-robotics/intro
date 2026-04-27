@@ -1,0 +1,6 @@
+[2026-04-26T23:59:39Z] LLM agent node started. Waiting for odometry...
+[2026-04-26T23:59:59Z] Odometry received. Starting navigation from (3.98, 7.87) to (11.51, 13.67)
+[2026-04-26T23:59:59Z] Agent step 1/50
+[2026-04-27T00:00:00Z]   -> Agent terminated: Nav2 rejected the goal.
+[2026-04-27T00:00:00Z] Debug images saved to: /workspace/experiment_data_folder/experiment_1/flow_6/20260426_235933/llm_calls
+[2026-04-27T00:00:00Z] Agent terminated after 1 steps. Final: Agent terminated: Nav2 rejected the goal.

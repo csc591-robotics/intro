@@ -31,6 +31,7 @@ setup(
         ]),
         ('share/' + package_name + '/config', [
             'config/llm_nav_params.yaml',
+            'config/nav2_params_flow6.yaml',
         ]),
         ('share/' + package_name + '/maps', _collect_maps()),
         ('share/' + package_name + '/scripts', [

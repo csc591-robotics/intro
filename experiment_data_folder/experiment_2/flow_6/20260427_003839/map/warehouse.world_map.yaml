@@ -1,0 +1,60 @@
+schema_version: 3
+generated_by: world_to_map.rasterize_world
+source_world: /workspace/world_files/warehouse.world
+map_yaml: warehouse.yaml
+map_pgm: warehouse.pgm
+resolution: 0.05
+origin:
+- 0.0
+- 0.0
+- 0.0
+image_size_px:
+- 285
+- 382
+world_extent_m:
+- 14.25
+- 19.1
+world_aabb:
+  min:
+  - -6.69067350680137
+  - -9.755985767699576
+  max:
+  - 3.5558247268161747
+  - 5.3295797600000006
+padded_aabb:
+  min:
+  - -8.690673506801371
+  - -11.755985767699576
+  max:
+  - 5.555824726816175
+  - 7.3295797600000006
+padding_m: 2.0
+z_band_m:
+- 0.0
+- 0.4
+origin_mode: bottom-left
+world_to_map_offset:
+- 8.690673506801371
+- 11.755985767699576
+frames:
+  map_frame: map
+  world_frame: world
+  map_to_odom_translation:
+  - 8.690673506801371
+  - 11.755985767699576
+  - 0.0
+model_paths:
+- /workspace/world_files/gazebo_models_worlds_collection/models
+stats:
+  boxes: 130
+  cylinders: 0
+  meshes: 12
+  includes_resolved: 204
+  includes_unresolved:
+  - model://first_2015_trash_can
+  - model://grey_wall
+  - model://grey_wall
+  skipped_mesh: 0
+  skipped_floor: 1
+  skipped_other: 0
+  unreadable_meshes: []

@@ -1,0 +1,8 @@
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1777250319.739790323] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[INFO] [1777250319.741653811] [rosbag2_storage]: Opened database '/workspace/experiment_data_folder/experiment_2/flow_6/20260427_003839/rosbag/rosbag_0.db3' for READ_WRITE.
+[INFO] [1777250319.742439830] [rosbag2_recorder]: Listening for topics...
+[INFO] [1777250319.742475197] [rosbag2_recorder]: Event publisher thread: Starting
+[INFO] [1777250319.742605664] [rosbag2_recorder]: Recording...
+[INFO] [1777250322.046932422] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[INFO] [1777250322.047618129] [rosbag2_recorder]: Event publisher thread: Exiting
+[INFO] [1777250322.047714342] [rosbag2_recorder]: Recording stopped

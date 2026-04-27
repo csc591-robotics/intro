@@ -13,7 +13,7 @@
 #   bash src/nav2_llm_experiments/scripts/run_experiments.sh \
 #       [--config <path>] \
 #       [--map-poses <path>] \
-#       [--flow 1,2,3,4,5] \
+#       [--flow 1,2,3,4,5,6] \
 #       [--experiment 1,3,5] \
 #       [--output-dir <path>] \
 #       [--no-rosbag] \
@@ -30,6 +30,9 @@
 #   # Just experiments 1 and 5, flow 5, no RViz, no rosbag
 #   bash src/nav2_llm_experiments/scripts/run_experiments.sh \
 #       --experiment 1,5 --flow 5 --no-rviz --no-rosbag
+#
+#   # Pure Nav2 baseline (no LLM) for every experiment
+#   bash src/nav2_llm_experiments/scripts/run_experiments.sh --flow 6
 # ──────────────────────────────────────────────────────────────────────────
 
 set -eo pipefail

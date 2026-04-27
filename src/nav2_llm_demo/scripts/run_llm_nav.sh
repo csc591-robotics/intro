@@ -16,7 +16,7 @@
 # case (no .world is associated with the map).
 #
 # Usage:
-#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME> [--flow 1|2|3|4|5]
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh <MAP_NAME> [--flow 1|2|3|4|5|6]
 #
 # Examples:
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse              # flow 1 (default)
@@ -24,6 +24,7 @@
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 3     # ReAct + LiDAR
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 4     # fixed gather/decide cycle
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 5     # A* + LLM follower
+#   bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse --flow 6     # pure Nav2 baseline (no LLM)
 #   LLM_FLOW=5 bash src/nav2_llm_demo/scripts/run_llm_nav.sh warehouse   # via env
 #   bash src/nav2_llm_demo/scripts/run_llm_nav.sh diamond_blocked
 #
@@ -33,13 +34,13 @@
 #   LAUNCH_RVIZ=false     Skip RViz.
 #   USE_SIM_TIME=false    Use wall clock instead of /clock.
 #   TURTLEBOT3_MODEL      burger (default) | waffle | waffle_pi
-#   LLM_FLOW=1|2|3|4|5    Which agent flow to use; --flow CLI arg overrides this.
+#   LLM_FLOW=1|2|3|4|5|6  Which agent flow to use; --flow CLI arg overrides this.
 # ──────────────────────────────────────────────────────────────────────────
 
 set -eo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5]" >&2
+  echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5|6]" >&2
   exit 1
 fi
 
@@ -57,12 +58,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5]" >&2
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5|6]" >&2
       exit 0
       ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5]" >&2
+      echo "Usage: $0 <MAP_NAME> [--flow 1|2|3|4|5|6]" >&2
       exit 1
       ;;
   esac
@@ -70,9 +71,9 @@ done
 
 LLM_FLOW="${LLM_FLOW:-1}"
 case "${LLM_FLOW}" in
-  1|2|3|4|5) ;;
+  1|2|3|4|5|6) ;;
   *)
-    echo "ERROR: --flow must be 1, 2, 3, 4, or 5 (got '${LLM_FLOW}')." >&2
+    echo "ERROR: --flow must be 1, 2, 3, 4, 5, or 6 (got '${LLM_FLOW}')." >&2
     exit 1
     ;;
 esac
@@ -114,7 +115,9 @@ if [[ -n "$ENV_FILE" ]]; then
   set +a
 fi
 
-if [[ -z "${LLM_PROVIDER:-}" || -z "${LLM_MODEL:-}" ]]; then
+if [[ "${LLM_FLOW}" == "6" ]]; then
+  echo "Flow 6 selected: pure Nav2 baseline; skipping LLM provider checks."
+elif [[ -z "${LLM_PROVIDER:-}" || -z "${LLM_MODEL:-}" ]]; then
   echo "ERROR: LLM_PROVIDER and LLM_MODEL must be set." >&2
   echo "       Add them to ${WORKSPACE_ROOT}/.env or export them before running." >&2
   echo "       (See ${WORKSPACE_ROOT}/.env.example for an example.)" >&2

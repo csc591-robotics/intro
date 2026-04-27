@@ -1,0 +1,39 @@
+[2026-04-27T00:02:50Z] Odometry received. Starting navigation from (3.98, 7.87) to (11.51, 13.67)
+[2026-04-27T00:02:59Z] Agent step 1/50
+[2026-04-27T00:03:00Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (5 retries left).
+[2026-04-27T00:03:00Z] Debug images saved to: /workspace/experiment_data_folder/experiment_1/flow_6/20260427_000237/llm_calls
+[2026-04-27T00:03:00Z] Agent step 2/50
+[2026-04-27T00:03:01Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (5 retries left).
+[2026-04-27T00:03:01Z] Agent step 3/50
+[2026-04-27T00:03:02Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (4 retries left).
+[2026-04-27T00:03:02Z] Agent step 4/50
+[2026-04-27T00:03:03Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (4 retries left).
+[2026-04-27T00:03:03Z] Agent step 5/50
+[2026-04-27T00:03:04Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (4 retries left).
+[2026-04-27T00:03:04Z] Agent step 6/50
+[2026-04-27T00:03:05Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (3 retries left).
+[2026-04-27T00:03:05Z] Agent step 7/50
+[2026-04-27T00:03:06Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (3 retries left).
+[2026-04-27T00:03:06Z] Agent step 8/50
+[2026-04-27T00:03:07Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (3 retries left).
+[2026-04-27T00:03:07Z] Agent step 9/50
+[2026-04-27T00:03:08Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (2 retries left).
+[2026-04-27T00:03:08Z] Agent step 10/50
+[2026-04-27T00:03:09Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (2 retries left).
+[2026-04-27T00:03:09Z] Agent step 11/50
+[2026-04-27T00:03:10Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (2 retries left).
+[2026-04-27T00:03:10Z] Agent step 12/50
+[2026-04-27T00:03:11Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (1 retries left).
+[2026-04-27T00:03:11Z] Agent step 13/50
+[2026-04-27T00:03:12Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (1 retries left).
+[2026-04-27T00:03:12Z] Agent step 14/50
+[2026-04-27T00:03:13Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (1 retries left).
+[2026-04-27T00:03:13Z] Agent step 15/50
+[2026-04-27T00:03:14Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (0 retries left).
+[2026-04-27T00:03:14Z] Agent step 16/50
+[2026-04-27T00:03:16Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (0 retries left).
+[2026-04-27T00:03:16Z] Agent step 17/50
+[2026-04-27T00:03:17Z]   -> Nav2 rejected the goal (likely lifecycle still activating); retrying in 3.0s (0 retries left).
+[2026-04-27T00:03:17Z] Agent step 18/50
+[2026-04-27T00:03:18Z]   -> Agent terminated: Nav2 rejected the goal after 6 retries.
+[2026-04-27T00:03:18Z] Agent terminated after 18 steps. Final: Agent terminated: Nav2 rejected the goal after 6 retries.

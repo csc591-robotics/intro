@@ -1,6 +1,6 @@
 """LLM helpers for vision-based agent navigation.
 
-Five flows are available; the active one is picked by the ``LLM_FLOW``
+Six flows are available; the active one is picked by the ``LLM_FLOW``
 environment variable (default ``"1"``):
 
 * ``LLM_FLOW=1`` -> :mod:`nav2_llm_demo.llm.flow_1` -- the original custom
@@ -21,6 +21,11 @@ environment variable (default ``"1"``):
   waypoints. The LLM follows the magenta line cycle by cycle with the
   bearing pre-computed for it ("rotate X" or "move_forward Y"). No
   LiDAR; no per-cycle planning. Most reliable on real maps.
+* ``LLM_FLOW=6`` -> :mod:`nav2_llm_demo.llm.flow_6` -- pure Nav2
+  navigator. No LLM at all: a ``NavigateToPose`` action client
+  dispatches a single goal to the Nav2 BT navigator and reports
+  ``distance_remaining`` until ``STATUS_SUCCEEDED`` /
+  ``STATUS_ABORTED``. Used as a deterministic baseline.
 
 All flows expose a ``build_agent()`` factory that returns an object with
 the same minimal surface (``initialize``, ``step``,
@@ -38,7 +43,9 @@ from .map_renderer import render_annotated_map, render_full_map
 
 _FLOW = os.environ.get("LLM_FLOW", "1").strip() or "1"
 
-if _FLOW == "5":
+if _FLOW == "6":
+    from .flow_6 import build_agent  # noqa: F401
+elif _FLOW == "5":
     from .flow_5 import build_agent  # noqa: F401
 elif _FLOW == "4":
     from .flow_4 import build_agent  # noqa: F401
@@ -51,7 +58,7 @@ elif _FLOW == "1":
 else:
     raise RuntimeError(
         f"LLM_FLOW={_FLOW!r} is not supported. "
-        "Set LLM_FLOW to 1, 2, 3, 4, or 5."
+        "Set LLM_FLOW to 1, 2, 3, 4, 5, or 6."
     )
 
 
