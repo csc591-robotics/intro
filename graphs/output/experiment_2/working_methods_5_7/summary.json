@@ -1,0 +1,13 @@
+{
+  "run_count": 1,
+  "runs": [
+    {
+      "label": "exp2-A* + LLM Follower",
+      "method": "A* + LLM Follower",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_2/flow_5/20260426_214442",
+      "outcome": "goal_reached",
+      "flow": 5,
+      "experiment_id": 2
+    }
+  ]
+}

@@ -67,7 +67,7 @@ from typing import Any
 import yaml
 
 
-VALID_FLOWS = ("1", "2", "3", "4", "5", "6")
+VALID_FLOWS = ("1", "2", "3", "4", "5", "6", "7")
 
 # When ``ros2`` is not on PATH, try these under ``/opt/ros/<name>/bin/`` first
 # if multiple distributions are installed.

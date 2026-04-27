@@ -19,8 +19,8 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 import tf2_ros
 
-from .llm.flow_6 import build_agent
-from .llm.map_renderer import render_graph_debug_map
+from .llm.flow_7 import build_agent
+from .llm.graph_map_renderer import render_graph_debug_map
 from .llm.topology_builder import DeterministicTopologyBuilder, OccupancyMap
 from .llm.topology_graph import TopologyGraph
 
@@ -294,6 +294,7 @@ class LlmAgentNode(Node):
     def _plan_route(self, agent: Any, *, reason: str) -> str:
         current_node_id = self._current_graph_node_id()
         goal_node_id = self._topology_graph.goal_node_id
+        fallback_path = self._topology_graph.find_path(current_node_id, goal_node_id)
         decision = agent.plan(
             self._planning_context(reason),
             reason=reason,
@@ -313,8 +314,20 @@ class LlmAgentNode(Node):
                 start_node_id=current_node_id,
                 goal_node_id=goal_node_id,
             )
+        if valid and fallback_path:
+            candidate_cost = self._topology_graph.path_cost(candidate_path)
+            fallback_cost = self._topology_graph.path_cost(fallback_path)
+            if (
+                not math.isfinite(candidate_cost)
+                or not math.isfinite(fallback_cost)
+                or candidate_cost > fallback_cost + 1e-6
+            ):
+                valid = False
+                message = (
+                    f"Path cost {candidate_cost:.3f} exceeds deterministic shortest-path cost "
+                    f"{fallback_cost:.3f}."
+                )
         if not valid:
-            fallback_path = self._topology_graph.find_path(current_node_id, goal_node_id)
             if not fallback_path:
                 if self._enable_direct_goal_fallback:
                     self._direct_goal_mode = True

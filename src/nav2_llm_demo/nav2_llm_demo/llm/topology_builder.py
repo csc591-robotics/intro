@@ -60,6 +60,28 @@ class OccupancyMap:
     def free_mask(self) -> np.ndarray:
         return self.grid >= self.free_threshold
 
+    def navigable_mask(self, *, robot_radius_m: float) -> np.ndarray:
+        """Return free space eroded by the robot footprint.
+
+        ``free_mask()`` treats the robot as a point, which lets the topology
+        skeleton hug walls and map borders. Flow 7 needs a graph that is
+        traversable by the actual TurtleBot footprint, so we only keep cells
+        whose centers pass ``footprint_is_clear()``.
+        """
+        free = self.free_mask()
+        safe = np.zeros_like(free, dtype=bool)
+        for row in range(self.height):
+            for col in range(self.width):
+                if not free[row, col]:
+                    continue
+                wx, wy = self.grid_to_world(row, col)
+                safe[row, col] = self.footprint_is_clear(
+                    wx,
+                    wy,
+                    robot_radius_m=robot_radius_m,
+                )
+        return safe
+
     def world_to_grid(self, wx: float, wy: float) -> tuple[int, int]:
         col = int((wx - self.origin_x) / self.resolution)
         row = self.height - 1 - int((wy - self.origin_y) / self.resolution)
@@ -170,7 +192,9 @@ class DeterministicTopologyBuilder:
         source_pose: tuple[float, float] | None = None,
         goal_pose: tuple[float, float] | None = None,
     ) -> TopologyGraph:
-        skeleton = self._skeletonize(self._occupancy_map.free_mask())
+        skeleton = self._skeletonize(
+            self._occupancy_map.navigable_mask(robot_radius_m=self._robot_radius_m),
+        )
         anchor_clusters = self._extract_anchor_clusters(skeleton)
         graph = TopologyGraph()
 
@@ -205,9 +229,23 @@ class DeterministicTopologyBuilder:
             self._emit_corridor(graph, start_node, end_node, trace.pixels)
 
         if source_pose is not None:
-            self._attach_special_node(graph, "start", *source_pose)
+            self._add_special_node(graph, "start", *source_pose)
         if goal_pose is not None:
-            self._attach_special_node(graph, "goal", *goal_pose)
+            self._add_special_node(graph, "goal", *goal_pose)
+        if source_pose is not None:
+            self._attach_special_node(
+                graph,
+                "start",
+                *source_pose,
+                route_hint_target=goal_pose,
+            )
+        if goal_pose is not None:
+            self._attach_special_node(
+                graph,
+                "goal",
+                *goal_pose,
+                route_hint_target=source_pose,
+            )
 
         pre_simplify = TopologyGraph.from_dict(graph.to_dict())
         self._simplify_graph(graph)
@@ -349,7 +387,7 @@ class DeterministicTopologyBuilder:
             },
         )
 
-    def _attach_special_node(self, graph: TopologyGraph, node_id: str, wx: float, wy: float) -> None:
+    def _add_special_node(self, graph: TopologyGraph, node_id: str, wx: float, wy: float) -> None:
         graph.add_node(
             node_id=node_id,
             node_type=node_id,
@@ -359,9 +397,129 @@ class DeterministicTopologyBuilder:
             metadata={"source": "configured_pose"},
         )
 
-        candidates: list[tuple[float, str]] = []
+        if node_id == "start":
+            graph.start_node_id = node_id
+        elif node_id == "goal":
+            graph.goal_node_id = node_id
+
+    def _route_hint_node_id(
+        self,
+        graph: TopologyGraph,
+        target_pose: tuple[float, float] | None,
+    ) -> str | None:
+        if target_pose is None:
+            return None
+        nearest = graph.nearest_node(
+            target_pose[0],
+            target_pose[1],
+            include_types={"anchor", "junction", "corridor"},
+        )
+        if nearest is None:
+            return None
+        return nearest.node_id
+
+    def _path_cost_between(self, graph: TopologyGraph, start_node_id: str, goal_node_id: str | None) -> float:
+        if not goal_node_id:
+            return 0.0
+        path = graph.find_path(start_node_id, goal_node_id)
+        if not path:
+            return math.inf
+        return graph.path_cost(path)
+
+    def _polyline_prefix_lengths(self, polyline: list[tuple[float, float]]) -> list[float]:
+        prefix = [0.0]
+        total = 0.0
+        for start, end in zip(polyline, polyline[1:]):
+            total += math.hypot(end[0] - start[0], end[1] - start[1])
+            prefix.append(total)
+        return prefix
+
+    def _split_edge_with_attachment(
+        self,
+        graph: TopologyGraph,
+        *,
+        special_node_id: str,
+        attach_node_id: str,
+        edge_id: str,
+        polyline_index: int,
+    ) -> None:
+        edge = graph.get_edge(edge_id)
+        if edge is None:
+            raise RuntimeError(f"Cannot split missing edge '{edge_id}'.")
+
+        polyline = [
+            (float(point[0]), float(point[1]))
+            for point in edge.metadata.get("polyline", [])
+        ]
+        if len(polyline) < 2:
+            from_node = graph.get_node(edge.from_node)
+            to_node = graph.get_node(edge.to_node)
+            if from_node is None or to_node is None:
+                raise RuntimeError(f"Cannot reconstruct polyline for edge '{edge_id}'.")
+            polyline = [(from_node.x, from_node.y), (to_node.x, to_node.y)]
+
+        split_point = polyline[polyline_index]
+        graph.add_node(
+            node_id=attach_node_id,
+            node_type="attachment",
+            x=split_point[0],
+            y=split_point[1],
+            label=attach_node_id,
+            metadata={
+                "source": "special_attachment",
+                "special_node_id": special_node_id,
+                "split_edge_id": edge_id,
+            },
+        )
+
+        del graph.edges[edge_id]
+
+        left_polyline = polyline[: polyline_index + 1]
+        right_polyline = polyline[polyline_index:]
+        self._add_segment_edge(
+            graph,
+            edge.from_node,
+            attach_node_id,
+            start_point=left_polyline[0],
+            end_point=left_polyline[-1],
+            polyline=left_polyline,
+        )
+        self._add_segment_edge(
+            graph,
+            attach_node_id,
+            edge.to_node,
+            start_point=right_polyline[0],
+            end_point=right_polyline[-1],
+            polyline=right_polyline,
+        )
+        special_node = graph.get_node(special_node_id)
+        if special_node is None:
+            raise RuntimeError(f"Special node '{special_node_id}' is missing during attachment.")
+        self._add_segment_edge(
+            graph,
+            special_node_id,
+            attach_node_id,
+            start_point=(special_node.x, special_node.y),
+            end_point=split_point,
+            polyline=[(special_node.x, special_node.y), split_point],
+        )
+
+    def _attach_special_node(
+        self,
+        graph: TopologyGraph,
+        node_id: str,
+        wx: float,
+        wy: float,
+        *,
+        route_hint_target: tuple[float, float] | None = None,
+    ) -> None:
+        route_hint_node_id = self._route_hint_node_id(graph, route_hint_target)
+
+        best_anchor_candidate: tuple[float, float, str] | None = None
+        best_edge_candidate: tuple[float, str, int] | None = None
+
         for candidate in graph.nodes.values():
-            if candidate.node_id == node_id:
+            if candidate.node_id == node_id or candidate.node_type in {"start", "goal", "attachment"}:
                 continue
             if not self._occupancy_map.is_segment_clear(
                 (wx, wy),
@@ -369,8 +527,59 @@ class DeterministicTopologyBuilder:
                 robot_radius_m=self._robot_radius_m,
             ):
                 continue
-            distance = math.hypot(candidate.x - wx, candidate.y - wy)
-            candidates.append((distance, candidate.node_id))
+            direct_distance = math.hypot(candidate.x - wx, candidate.y - wy)
+            route_cost = self._path_cost_between(graph, candidate.node_id, route_hint_node_id)
+            score = direct_distance + route_cost
+            candidate_tuple = (score, direct_distance, candidate.node_id)
+            if best_anchor_candidate is None or candidate_tuple < best_anchor_candidate:
+                best_anchor_candidate = candidate_tuple
+
+        for edge in list(graph.edges.values()):
+            if node_id in {edge.from_node, edge.to_node}:
+                continue
+            polyline = [
+                (float(point[0]), float(point[1]))
+                for point in edge.metadata.get("polyline", [])
+            ]
+            if len(polyline) < 3:
+                continue
+            prefix = self._polyline_prefix_lengths(polyline)
+            total_length = prefix[-1]
+            left_route = self._path_cost_between(graph, edge.from_node, route_hint_node_id)
+            right_route = self._path_cost_between(graph, edge.to_node, route_hint_node_id)
+            for idx in range(1, len(polyline) - 1):
+                px, py = polyline[idx]
+                if not self._occupancy_map.is_segment_clear(
+                    (wx, wy),
+                    (px, py),
+                    robot_radius_m=self._robot_radius_m,
+                ):
+                    continue
+                direct_distance = math.hypot(px - wx, py - wy)
+                score = direct_distance + min(
+                    prefix[idx] + left_route,
+                    (total_length - prefix[idx]) + right_route,
+                )
+                candidate_tuple = (score, edge.edge_id, idx)
+                if best_edge_candidate is None or candidate_tuple < best_edge_candidate:
+                    best_edge_candidate = candidate_tuple
+
+        if best_edge_candidate is not None and (
+            best_anchor_candidate is None or best_edge_candidate[0] + 1e-6 < best_anchor_candidate[0]
+        ):
+            attach_node_id = f"{node_id}_entry"
+            self._split_edge_with_attachment(
+                graph,
+                special_node_id=node_id,
+                attach_node_id=attach_node_id,
+                edge_id=best_edge_candidate[1],
+                polyline_index=best_edge_candidate[2],
+            )
+            return
+
+        candidates: list[tuple[float, str]] = []
+        if best_anchor_candidate is not None:
+            candidates.append((best_anchor_candidate[1], best_anchor_candidate[2]))
 
         if not candidates:
             # Fallback to the nearest *non-special* node. If we let nearest_node()
@@ -403,11 +612,6 @@ class DeterministicTopologyBuilder:
                     "polyline": [(wx, wy), (graph.nodes[neighbor_id].x, graph.nodes[neighbor_id].y)],
                 },
             )
-
-        if node_id == "start":
-            graph.start_node_id = node_id
-        elif node_id == "goal":
-            graph.goal_node_id = node_id
 
     def _sample_polyline(
         self,
@@ -748,9 +952,15 @@ class DeterministicTopologyBuilder:
         return tuple(sorted((first, second)))
 
     def _centroid_pixel(self, pixels: list[tuple[int, int]]) -> tuple[int, int]:
-        row = int(round(sum(pixel[0] for pixel in pixels) / len(pixels)))
-        col = int(round(sum(pixel[1] for pixel in pixels) / len(pixels)))
-        return row, col
+        mean_row = sum(pixel[0] for pixel in pixels) / len(pixels)
+        mean_col = sum(pixel[1] for pixel in pixels) / len(pixels)
+        return min(
+            pixels,
+            key=lambda pixel: (
+                (pixel[0] - mean_row) * (pixel[0] - mean_row)
+                + (pixel[1] - mean_col) * (pixel[1] - mean_col)
+            ),
+        )
 
     def _skeleton_neighbors(self, skeleton: np.ndarray, row: int, col: int) -> list[tuple[int, int]]:
         height, width = skeleton.shape

@@ -1,0 +1,164 @@
+──────────────────────────────────────────────────────────────────────
+  nav2_llm_demo — LLM agent runner
+──────────────────────────────────────────────────────────────────────
+  Map name              : warehouse.pgm
+  map_poses.yaml        : /workspace/experiment_data_folder/experiment_1/flow_2/20260427_020925/map_poses_used.yaml
+  Map YAML              : /workspace/src/world_to_map/maps/warehouse.yaml
+  Sidecar               : /workspace/src/world_to_map/maps/warehouse.world_map.yaml
+  world_to_map_offset   : (8.690674, 11.755986)
+  Gazebo world          : /workspace/world_files/warehouse.world
+  Spawn (Gazebo world)  : (-4.709400, -3.889000, yaw=0.000000)
+  Source (map frame)    : (3.981274, 7.866986, yaw=0.000000)
+  Destination (map)     : (11.512874, 13.666186, yaw=0.000000)
+  static map->odom TF   : (8.690674, 11.755986)
+  GAZEBO_MODEL_PATH     : /workspace/world_files/gazebo_models_worlds_collection/models/
+  TURTLEBOT3_MODEL      : burger
+  Launch RViz           : true
+  LLM flow              : 2  (logs -> intro/llm_agent_runs/flow_2/<timestamp>/)
+  Max agent steps       : 50
+  LLM (global default)  : openai/gpt-4o
+  LLM (effective flow)  : anthropic/claude-sonnet-4-6
+  .env loaded from      : /workspace/.env
+──────────────────────────────────────────────────────────────────────
+[INFO] [launch]: All log files can be found below /workspace/.ros/log/2026-04-27-02-09-33-990877-docker-desktop-859
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [llm_agent_node-9]: process started with pid [896]
+[INFO] [gzserver-1]: process started with pid [880]
+[INFO] [gzclient-2]: process started with pid [882]
+[INFO] [robot_state_publisher-3]: process started with pid [884]
+[INFO] [spawn_entity.py-4]: process started with pid [886]
+[INFO] [map_server-5]: process started with pid [888]
+[INFO] [lifecycle_manager-6]: process started with pid [890]
+[INFO] [static_transform_publisher-7]: process started with pid [892]
+[INFO] [rviz2-8]: process started with pid [894]
+[rviz2-8] qt.qpa.xcb: could not connect to display /private/tmp/com.apple.launchd.U1mKk04l4l/org.xquartz:0
+[rviz2-8] qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "" even though it was found.
+[rviz2-8] This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+[rviz2-8] 
+[rviz2-8] Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, xcb.
+[rviz2-8] 
+[ERROR] [rviz2-8]: process has died [pid 894, exit code -6, cmd '/opt/ros/humble/lib/rviz2/rviz2 -d /tmp/world_to_map_p4ay0wvj.rviz --ros-args -r __node:=rviz2 --params-file /tmp/launch_params_429xnln0'].
+[lifecycle_manager-6] [INFO] [1777255775.633188169] [lifecycle_manager_world_to_map]: Creating
+[static_transform_publisher-7] [INFO] [1777255775.633132211] [static_map_to_odom]: Spinning until stopped - publishing transform
+[static_transform_publisher-7] translation: ('8.690674', '11.755986', '0.000000')
+[static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-7] from 'map' to 'odom'
+[lifecycle_manager-6] [INFO] [1777255775.660899169] [lifecycle_manager_world_to_map]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[map_server-5] [INFO] [1777255775.665314878] [map_server]: 
+[map_server-5] 	map_server lifecycle node launched. 
+[map_server-5] 	Waiting on external lifecycle transitions to activate
+[map_server-5] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[map_server-5] [INFO] [1777255775.669972753] [map_server]: Creating
+[lifecycle_manager-6] [INFO] [1777255775.683605044] [lifecycle_manager_world_to_map]: [34m[1mStarting managed nodes bringup...[0m[0m
+[lifecycle_manager-6] [INFO] [1777255775.684937961] [lifecycle_manager_world_to_map]: [34m[1mConfiguring map_server[0m[0m
+[map_server-5] [INFO] [1777255775.699930253] [map_server]: Configuring
+[map_server-5] [INFO] [1777255775.701623753] [map_io]: Loading yaml file: /workspace/src/world_to_map/maps/warehouse.yaml
+[map_server-5] [INFO] [1777255775.720147336] [map_io]: resolution: 0.05
+[map_server-5] [INFO] [1777255775.720531669] [map_io]: origin[0]: 0
+[map_server-5] [INFO] [1777255775.720547919] [map_io]: origin[1]: 0
+[map_server-5] [INFO] [1777255775.720557294] [map_io]: origin[2]: 0
+[map_server-5] [INFO] [1777255775.720575461] [map_io]: free_thresh: 0.196
+[map_server-5] [INFO] [1777255775.720586211] [map_io]: occupied_thresh: 0.65
+[map_server-5] [INFO] [1777255775.720620294] [map_io]: mode: trinary
+[map_server-5] [INFO] [1777255775.720947586] [map_io]: negate: 0
+[map_server-5] [INFO] [1777255775.731818169] [map_io]: Loading image_file: /workspace/src/world_to_map/maps/warehouse.pgm
+[robot_state_publisher-3] [INFO] [1777255775.778947545] [robot_state_publisher]: got segment ${namespace}base_footprint
+[map_server-5] [INFO] [1777255775.783929878] [map_io]: Read map /workspace/src/world_to_map/maps/warehouse.pgm: 285 X 382 map @ 0.05 m/cell
+[robot_state_publisher-3] [INFO] [1777255775.784206711] [robot_state_publisher]: got segment ${namespace}base_link
+[robot_state_publisher-3] [INFO] [1777255775.784309878] [robot_state_publisher]: got segment ${namespace}base_scan
+[robot_state_publisher-3] [INFO] [1777255775.784324628] [robot_state_publisher]: got segment ${namespace}caster_back_link
+[robot_state_publisher-3] [INFO] [1777255775.784335336] [robot_state_publisher]: got segment ${namespace}imu_link
+[robot_state_publisher-3] [INFO] [1777255775.784346461] [robot_state_publisher]: got segment ${namespace}wheel_left_link
+[robot_state_publisher-3] [INFO] [1777255775.784355586] [robot_state_publisher]: got segment ${namespace}wheel_right_link
+[lifecycle_manager-6] [INFO] [1777255775.803588670] [lifecycle_manager_world_to_map]: [34m[1mActivating map_server[0m[0m
+[map_server-5] [INFO] [1777255775.805904670] [map_server]: Activating
+[map_server-5] [INFO] [1777255775.807385670] [map_server]: Creating bond (map_server) to lifecycle manager.
+[lifecycle_manager-6] [INFO] [1777255775.924230920] [lifecycle_manager_world_to_map]: Server map_server connected with bond.
+[lifecycle_manager-6] [INFO] [1777255775.924345170] [lifecycle_manager_world_to_map]: [34m[1mManaged nodes are active[0m[0m
+[lifecycle_manager-6] [INFO] [1777255775.924491211] [lifecycle_manager_world_to_map]: [34m[1mCreating bond timer...[0m[0m
+[ERROR] [gzclient-2]: process has died [pid 882, exit code -6, cmd 'gzclient --gui-client-plugin=libgazebo_ros_eol_gui.so'].
+[spawn_entity.py-4] [INFO] [1777255777.607225337] [spawn_turtlebot3]: Spawn Entity started
+[spawn_entity.py-4] [INFO] [1777255777.611389170] [spawn_turtlebot3]: Loading entity XML from file /opt/ros/humble/share/turtlebot3_gazebo/models/turtlebot3_burger/model.sdf
+[spawn_entity.py-4] [INFO] [1777255777.628756045] [spawn_turtlebot3]: Waiting for service /spawn_entity, timeout = 30
+[spawn_entity.py-4] [INFO] [1777255777.629256545] [spawn_turtlebot3]: Waiting for service /spawn_entity
+[llm_agent_node-9] [0m[INFO] [1777255778.920633296] [llm_agent_node]: LLM agent node started. Waiting for odometry...[0m
+[llm_agent_node-9] [0m[INFO] [1777255778.926935671] [llm_agent_node]: Waiting for odometry data...[0m
+[spawn_entity.py-4] [ERROR] [1777255807.974773087] [spawn_turtlebot3]: Service /spawn_entity unavailable. Was Gazebo started with GazeboRosFactory?
+[spawn_entity.py-4] [ERROR] [1777255807.976244337] [spawn_turtlebot3]: Spawn service failed. Exiting.
+[ERROR] [spawn_entity.py-4]: process has died [pid 886, exit code 1, cmd '/opt/ros/humble/lib/gazebo_ros/spawn_entity.py -entity turtlebot3_burger -file /opt/ros/humble/share/turtlebot3_gazebo/models/turtlebot3_burger/model.sdf -x -4.709400 -y -3.889000 -z 0.050000 -Y 0.000000 --ros-args -r __node:=spawn_turtlebot3'].
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://shelves_high2_no_collision]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://pallet_full]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://pallet_full]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://pallet_full]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://pallet_full]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://pallet_full]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box4]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://big_box3]
+[gzserver-1] Error Code 12 Msg: Unable to find uri[model://europallet]
+[gzserver-1] ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+[gzserver-1] ALSA lib conf.c:5178:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+[gzserver-1] ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+[gzserver-1] ALSA lib conf.c:5178:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+[gzserver-1] ALSA lib confmisc.c:1334:(snd_func_refer) error evaluating name
+[gzserver-1] ALSA lib conf.c:5178:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+[gzserver-1] ALSA lib conf.c:5701:(snd_config_expand) Evaluate error: No such file or directory
+[gzserver-1] ALSA lib pcm.c:2664:(snd_pcm_open_noupdate) Unknown PCM default
+[gzserver-1] AL lib: (EE) ALCplaybackAlsa_open: Could not open playback device 'default': No such file or directory
+[ERROR] [gzserver-1]: process has died [pid 880, exit code -9, cmd 'gzserver /workspace/world_files/warehouse.world -slibgazebo_ros_init.so -slibgazebo_ros_factory.so -slibgazebo_ros_force_system.so'].
+[ERROR] [llm_agent_node-9]: process has died [pid 896, exit code -9, cmd '/workspace/install/nav2_llm_demo/lib/nav2_llm_demo/llm_agent_node --ros-args --log-level info --ros-args -r __node:=llm_agent_node --params-file /tmp/launch_params_yd9m7sxx --params-file /tmp/launch_params_9l6h6b5s --params-file /tmp/launch_params_q3sfs9rj --params-file /tmp/launch_params_rlkw3vyf --params-file /tmp/launch_params_9hq6ai1b --params-file /tmp/launch_params_w9ogiulj --params-file /tmp/launch_params_6q1jn4a1 --params-file /tmp/launch_params_d45q6rfx'].
+[ERROR] [robot_state_publisher-3]: process has died [pid 884, exit code -9, cmd '/opt/ros/humble/lib/robot_state_publisher/robot_state_publisher --ros-args -r __node:=robot_state_publisher --params-file /tmp/launch_params_m_4j7554'].
+[ERROR] [static_transform_publisher-7]: process has died [pid 892, exit code -9, cmd '/opt/ros/humble/lib/tf2_ros/static_transform_publisher --x 8.690674 --y 11.755986 --z 0 --qx 0 --qy 0 --qz 0 --qw 1 --frame-id map --child-frame-id odom --ros-args -r __node:=static_map_to_odom --params-file /tmp/launch_params___9uod28'].
+[ERROR] [lifecycle_manager-6]: process has died [pid 890, exit code -9, cmd '/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_world_to_map --params-file /tmp/launch_params_y5xu4zfd --params-file /tmp/launch_params_8yl3x8hl --params-file /tmp/launch_params_lzn8cutx --params-file /tmp/launch_params_7jc929wu'].
+[ERROR] [map_server-5]: process has died [pid 888, exit code -9, cmd '/opt/ros/humble/lib/nav2_map_server/map_server --ros-args -r __node:=map_server --params-file /tmp/launch_params_lxiz3mz7 --params-file /tmp/launch_params_igjb272n'].

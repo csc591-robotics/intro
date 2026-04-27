@@ -1,0 +1,13 @@
+{
+  "llm_call_num": 1,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'll start by getting a view of the map to understand the layout and plan a route.\", 'type': 'text'}, {'id': 'toolu_01BunzYtjPSFcatnDdLnEkbv', 'caller': {'type': 'direct'}, 'input': {}, 'name': 'get_map_view', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "get_map_view",
+      "args": {},
+      "id": "toolu_01BunzYtjPSFcatnDdLnEkbv",
+      "type": "tool_call"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "llm_call_num": 17,
+  "role": "AIMessage",
+  "content": "[{'text': \"I'm at (11.12, 7.87). The robot is now near the right side of the middle corridor. The destination is at (11.51, 13.67) - almost directly above me! I need to turn left (90° CCW) to face upward (+Y) and then navigate up through a vertical passage. Let me rotate to face up.\", 'type': 'text'}, {'id': 'toolu_011m1VjHxp7jGjZ3DsTMfKCM', 'caller': {'type': 'direct'}, 'input': {'angle_degrees': 90}, 'name': 'rotate', 'type': 'tool_use'}]",
+  "tool_calls": [
+    {
+      "name": "rotate",
+      "args": {
+        "angle_degrees": 90
+      },
+      "id": "toolu_011m1VjHxp7jGjZ3DsTMfKCM",
+      "type": "tool_call"
+    }
+  ]
+}

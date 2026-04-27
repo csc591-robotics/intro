@@ -1,0 +1,29 @@
+{
+  "run_count": 3,
+  "runs": [
+    {
+      "label": "exp1-A* + LLM Follower",
+      "method": "A* + LLM Follower",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_5/20260426_214107",
+      "outcome": "goal_reached",
+      "flow": 5,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-Nav2 NavigateToPose Baseline",
+      "method": "Nav2 NavigateToPose Baseline",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_6/20260427_000944",
+      "outcome": "goal_reached",
+      "flow": 6,
+      "experiment_id": 1
+    },
+    {
+      "label": "exp1-Topology Graph + LLM Route Planner",
+      "method": "Topology Graph + LLM Route Planner",
+      "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_1/flow_7/20260427_035815",
+      "outcome": "goal_reached",
+      "flow": 7,
+      "experiment_id": 1
+    }
+  ]
+}

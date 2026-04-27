@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import os
+import shutil
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -25,6 +27,17 @@ FLOW_COLORS = {
     "4": "#d62728",
     "5": "#9467bd",
     "6": "#8c564b",
+    "7": "#e377c2",
+}
+
+FLOW_DISPLAY = {
+    "1": "flow 1",
+    "2": "flow 2",
+    "3": "flow 3",
+    "4": "flow 4",
+    "5": "A* + LLM Follower",
+    "6": "Nav2 NavigateToPose Baseline",
+    "7": "Topology Graph + LLM Route Planner",
 }
 
 
@@ -57,7 +70,14 @@ def _find_run_dirs(root: Path) -> list[Path]:
 
 
 def _run_label(meta: dict) -> str:
-    return f"exp{meta['experiment_id']}-f{meta['flow']}"
+    flow = str(meta["flow"])
+    flow_label = FLOW_DISPLAY.get(flow, f"flow {flow}")
+    return f"exp{meta['experiment_id']}-{flow_label}"
+
+
+def _method_label(meta: dict) -> str:
+    flow = str(meta["flow"])
+    return FLOW_DISPLAY.get(flow, f"flow {flow}")
 
 
 def _load_simple_yaml(path: Path) -> dict:
@@ -203,7 +223,7 @@ def _plot_trajectory(run_dir: Path, meta: dict, output_dir: Path) -> None:
     ax.scatter([xs[-1]], [ys[-1]], color="red", label="end", zorder=3)
     if "x" in dest and "y" in dest:
         ax.scatter([dest["x"]], [dest["y"]], color="green", label="goal", zorder=3)
-    ax.set_title(f"Trajectory exp {meta['experiment_id']} flow {meta['flow']}")
+    ax.set_title(f"Trajectory: {_method_label(meta)}")
     ax.set_xlabel("map x (m)")
     ax.set_ylabel("map y (m)")
     ax.axis("equal")
@@ -237,7 +257,7 @@ def _plot_experiment_trajectory_overlay(metadata_rows: list[dict], experiment_id
             continue
         flow = str(meta["flow"])
         color = FLOW_COLORS.get(flow, None)
-        ax.plot(xs, ys, linewidth=2.0, color=color, label=f"flow {flow}")
+        ax.plot(xs, ys, linewidth=2.0, color=color, label=_method_label(meta))
         ax.scatter([xs[0]], [ys[0]], color=color, s=28, zorder=3)
         ax.scatter([xs[-1]], [ys[-1]], color=color, marker="x", s=50, zorder=3)
         plotted_any = True
@@ -250,7 +270,7 @@ def _plot_experiment_trajectory_overlay(metadata_rows: list[dict], experiment_id
     if "x" in dest and "y" in dest:
         ax.scatter([dest["x"]], [dest["y"]], color="black", marker="*", s=140, label="goal", zorder=4)
 
-    ax.set_title(f"Experiment {experiment_id} Trajectories by Flow")
+    ax.set_title(f"Experiment {experiment_id} Trajectories by Method")
     ax.set_xlabel("map x (m)")
     ax.set_ylabel("map y (m)")
     ax.axis("equal")
@@ -288,7 +308,7 @@ def _plot_trajectory_grid(metadata_rows: list[dict], output: Path, title: str) -
         dest = meta.get("destination_map", {})
         if "x" in dest and "y" in dest:
             ax.scatter([dest["x"]], [dest["y"]], color="black", marker="*", s=120, zorder=4)
-        ax.set_title(f"Exp {meta['experiment_id']} Flow {meta['flow']}")
+        ax.set_title(f"Exp {meta['experiment_id']} {_method_label(meta)}")
         ax.set_xlabel("map x (m)")
         ax.set_ylabel("map y (m)")
         ax.axis("equal")
@@ -331,34 +351,8 @@ def _plot_path_efficiency(labels: list[str], values: list[float], output: Path) 
 
 
 def _cleanup_old_outputs(output_root: Path) -> None:
-    old_root_patterns = (
-        "distance_by_run.png",
-        "all_trajectories.png",
-        "action_accuracy_*.png",
-        "experiment_*_trajectories_overlay.png",
-        "trajectory_grid.png",
-        "distance_traveled_by_run.png",
-        "distance_vs_runtime.png",
-        "llm_cycles_by_run.png",
-        "path_efficiency_by_run.png",
-        "runtime_by_run.png",
-        "trajectory_exp_*.png",
-        "summary.json",
-    )
-    for pattern in old_root_patterns:
-        for path in output_root.glob(pattern):
-            path.unlink()
-
-    for child in output_root.iterdir():
-        if not child.is_dir() or not child.name.startswith("experiment_"):
-            continue
-        for path in child.rglob("*"):
-            if path.is_file():
-                path.unlink()
-        for path in sorted(child.rglob("*"), reverse=True):
-            if path.is_dir():
-                path.rmdir()
-        child.rmdir()
+    if output_root.exists():
+        shutil.rmtree(output_root)
 
 
 def _path_efficiency(meta: dict) -> float:
@@ -385,6 +379,7 @@ def _write_experiment_summary(metadata_rows: list[dict], output: Path) -> None:
         "runs": [
             {
                 "label": _run_label(meta),
+                "method": _method_label(meta),
                 "run_dir": meta["_run_dir"],
                 "outcome": meta.get("outcome"),
                 "flow": meta.get("flow"),
@@ -394,6 +389,141 @@ def _write_experiment_summary(metadata_rows: list[dict], output: Path) -> None:
         ],
     }
     output.write_text(json.dumps(summary, indent=2))
+
+
+def _select_latest_goal_reached_runs(
+    metadata_rows: list[dict],
+    experiment_id: int,
+    flows: list[int],
+) -> list[dict]:
+    selected: list[dict] = []
+    for flow in flows:
+        candidates = [
+            meta
+            for meta in metadata_rows
+            if int(meta["experiment_id"]) == experiment_id
+            and int(meta["flow"]) == flow
+            and str(meta.get("outcome", "")).lower() == "goal_reached"
+        ]
+        if not candidates:
+            continue
+        candidates.sort(key=lambda item: str(item["_run_dir"]))
+        selected.append(candidates[-1])
+    return selected
+
+
+def _write_csv_table(rows: list[dict], output: Path) -> None:
+    if not rows:
+        return
+
+    fieldnames = [
+        "experiment_id",
+        "method",
+        "flow",
+        "run_dir",
+        "outcome",
+        "wall_clock_sec",
+        "path_length_m",
+        "path_efficiency_ratio",
+        "final_distance_to_goal_m",
+        "total_llm_cycles",
+        "total_actions",
+        "total_pose_samples_map",
+        "total_cmd_vel_samples",
+        "llm_provider",
+        "llm_model",
+    ]
+    with output.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for meta in rows:
+            writer.writerow(
+                {
+                    "experiment_id": int(meta["experiment_id"]),
+                    "method": _method_label(meta),
+                    "flow": int(meta["flow"]),
+                    "run_dir": meta["_run_dir"],
+                    "outcome": meta.get("outcome"),
+                    "wall_clock_sec": float(meta.get("wall_clock_sec", 0.0)),
+                    "path_length_m": float(meta.get("_path_length_m", 0.0)),
+                    "path_efficiency_ratio": float(meta.get("_path_efficiency", 0.0)),
+                    "final_distance_to_goal_m": float(meta.get("final_distance_to_goal_m", 0.0)),
+                    "total_llm_cycles": int(meta.get("total_llm_cycles", 0) or 0),
+                    "total_actions": int(meta.get("total_actions", 0) or 0),
+                    "total_pose_samples_map": int(meta.get("total_pose_samples_map", 0) or 0),
+                    "total_cmd_vel_samples": int(meta.get("total_cmd_vel_samples", 0) or 0),
+                    "llm_provider": meta.get("llm_provider", ""),
+                    "llm_model": meta.get("llm_model", ""),
+                }
+            )
+
+
+def _write_method_comparison_outputs(
+    metadata_rows: list[dict],
+    experiment_id: int,
+    output_root: Path,
+) -> None:
+    selected = _select_latest_goal_reached_runs(metadata_rows, experiment_id, [5, 6, 7])
+    if not selected:
+        return
+
+    comparison_dir = output_root / f"experiment_{experiment_id}" / "working_methods_5_7"
+    comparison_dir.mkdir(parents=True, exist_ok=True)
+
+    labels = [_method_label(meta) for meta in selected]
+    runtimes = [float(meta.get("wall_clock_sec", 0.0)) for meta in selected]
+    path_lengths = [float(meta.get("_path_length_m", 0.0)) for meta in selected]
+    final_distances = [float(meta.get("final_distance_to_goal_m", 0.0)) for meta in selected]
+    llm_cycles = [float(meta.get("total_llm_cycles", 0.0)) for meta in selected]
+    path_efficiencies = [float(meta.get("_path_efficiency", 0.0)) for meta in selected]
+
+    _plot_bar(
+        labels,
+        runtimes,
+        f"Experiment {experiment_id} Runtime by Method",
+        "Runtime (s)",
+        comparison_dir / "runtime_by_method.png",
+    )
+    _plot_bar(
+        labels,
+        path_lengths,
+        f"Experiment {experiment_id} Distance Traveled by Method",
+        "Distance traveled (m)",
+        comparison_dir / "distance_traveled_by_method.png",
+    )
+    _plot_bar(
+        labels,
+        final_distances,
+        f"Experiment {experiment_id} Final Distance to Goal by Method",
+        "Final distance to goal (m)",
+        comparison_dir / "final_distance_to_goal_by_method.png",
+    )
+    _plot_bar(
+        labels,
+        llm_cycles,
+        f"Experiment {experiment_id} LLM Cycles by Method",
+        "LLM cycles (count)",
+        comparison_dir / "llm_cycles_by_method.png",
+    )
+    _plot_bar(
+        labels,
+        path_efficiencies,
+        f"Experiment {experiment_id} Path Efficiency by Method",
+        "Path efficiency (straight-line distance / traveled distance)",
+        comparison_dir / "path_efficiency_by_method.png",
+    )
+    _plot_experiment_trajectory_overlay(
+        selected,
+        experiment_id,
+        comparison_dir / "trajectories_overlay_by_method.png",
+    )
+    _plot_trajectory_grid(
+        selected,
+        comparison_dir / "trajectory_grid_by_method.png",
+        f"Experiment {experiment_id} Working Methods Trajectory Maps",
+    )
+    _write_csv_table(selected, comparison_dir / "working_methods_5_7_summary.csv")
+    _write_experiment_summary(selected, comparison_dir / "summary.json")
 
 
 def _write_experiment_outputs(metadata_rows: list[dict], output_root: Path) -> None:
@@ -493,6 +623,7 @@ def main() -> None:
             meta for meta in metadata_rows if int(meta["experiment_id"]) == experiment_id
         ]
         _write_experiment_outputs(experiment_rows, output_root)
+        _write_method_comparison_outputs(metadata_rows, experiment_id, output_root)
 
 
 if __name__ == "__main__":

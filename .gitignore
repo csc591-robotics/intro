@@ -7,3 +7,11 @@ __pycache__/
 *.py[cod]
 llm_agent_runs/
 graph_step_debug/
+
+# Runtime artifacts from flow_7 (LLM route planner over topology graph)
+/graph_step_debug/
+/topology_graph_debug.json
+
+# Per-run experiment outputs (runtime data, not source).
+/experiment_data_folder/_batch_summary_*.json
+/experiment_data_folder/experiment_*/flow_7/

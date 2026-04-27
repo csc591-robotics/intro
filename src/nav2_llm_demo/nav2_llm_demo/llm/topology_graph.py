@@ -211,6 +211,7 @@ class TopologyGraph:
         start_node_id: str | None = None,
         goal_node_id: str | None = None,
         allow_blocked: bool = False,
+        allow_repeated_nodes: bool = False,
     ) -> tuple[bool, str]:
         if not path_nodes:
             return False, "Path is empty."
@@ -225,6 +226,19 @@ class TopologyGraph:
             return False, f"Path must start at '{expected_start}', got '{path_nodes[0]}'."
         if expected_goal and path_nodes[-1] != expected_goal:
             return False, f"Path must end at '{expected_goal}', got '{path_nodes[-1]}'."
+
+        if not allow_repeated_nodes:
+            visited: set[str] = set()
+            for node_id in path_nodes:
+                if node_id in visited:
+                    return False, f"Path revisits node '{node_id}'."
+                visited.add(node_id)
+
+        for prev_node, current_node, next_node in zip(path_nodes, path_nodes[1:], path_nodes[2:]):
+            if prev_node == next_node:
+                return False, (
+                    f"Path immediately backtracks '{prev_node}' -> '{current_node}' -> '{next_node}'."
+                )
 
         for from_node, to_node in zip(path_nodes, path_nodes[1:]):
             edge = self.edge_between(from_node, to_node)

@@ -2,28 +2,32 @@
   "run_count": 4,
   "runs": [
     {
-      "label": "exp2-f2",
+      "label": "exp2-flow 2",
+      "method": "flow 2",
       "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_2/flow_2/20260426_223912",
       "outcome": "agent_error",
       "flow": 2,
       "experiment_id": 2
     },
     {
-      "label": "exp2-f3",
+      "label": "exp2-flow 3",
+      "method": "flow 3",
       "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_2/flow_3/20260426_220726",
       "outcome": "agent_error",
       "flow": 3,
       "experiment_id": 2
     },
     {
-      "label": "exp2-f5",
+      "label": "exp2-A* + LLM Follower",
+      "method": "A* + LLM Follower",
       "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_2/flow_5/20260426_214442",
       "outcome": "goal_reached",
       "flow": 5,
       "experiment_id": 2
     },
     {
-      "label": "exp2-f6",
+      "label": "exp2-Nav2 NavigateToPose Baseline",
+      "method": "Nav2 NavigateToPose Baseline",
       "run_dir": "/Users/brennenfarrell/Desktop/homework/senior/robotics/project/experiment_data_folder/experiment_2/flow_6/20260427_003839",
       "outcome": "crashed",
       "flow": 6,

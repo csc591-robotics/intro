@@ -1,0 +1,49 @@
+Results-based conclusions from the current experiment data
+
+1. Flow 5 was the most reliable method in the current dataset.
+- Flow 5 reached the goal in both recorded experiments (2/2 success).
+- Experiment 1: goal reached in 205.766 s with final distance 0.082 m.
+- Experiment 2: goal reached in 247.349 s with final distance 0.052 m.
+- This makes Flow 5 the strongest method in terms of consistency.
+
+2. Flow 6 had the best best-case runtime, but it was not reliable.
+- The best successful Flow 6 run reached the goal in 80.102 s with final distance 0.239 m.
+- However, Flow 6 only succeeded in 1 of 7 recorded runs.
+- Other Flow 6 runs either crashed, were rejected by Nav2, or exhausted the step limit.
+- This means Flow 6 showed strong potential as a control/Nav2-based method, but its implementation was unstable in the current experiments.
+
+3. Flows 2 and 3 cannot be judged fairly on navigation quality from these results alone.
+- Both Flow 2 runs and both Flow 3 runs terminated with Anthropic API rate-limit errors (429).
+- Flow 2 success rate: 0/2.
+- Flow 3 success rate: 0/2.
+- Because these runs failed due to system/provider limits rather than clear navigation mistakes, they should be reported as inconclusive instead of simply worse planners.
+
+4. Among the failed LLM-agent runs, Flow 3 ended closer to the goal than Flow 2.
+- Experiment 1:
+  Flow 2 final distance = 5.814 m
+  Flow 3 final distance = 5.074 m
+- Experiment 2:
+  Flow 2 final distance = 5.557 m
+  Flow 3 final distance = 3.928 m
+- This suggests the LiDAR-enhanced setup in Flow 3 may have improved local progress before termination, although the dataset is too small to treat this as definitive.
+
+5. The successful Flow 5 and Flow 6 runs traveled similar total path lengths.
+- Flow 5:
+  Experiment 1 path length = 14.806 m
+  Experiment 2 path length = 14.915 m
+- Best successful Flow 6 run:
+  Experiment 1 path length = 14.743 m
+- This indicates that Flow 6's faster successful runtime did not come from taking a dramatically shorter path; it likely came from a different control/planning behavior.
+
+6. Runtime alone is not enough to rank the methods.
+- Some short runtimes came from crashes or early failures, especially in Flow 6.
+- Some very long runtimes in Flows 2 and 3 were caused by rate-limit failures rather than long but successful navigation.
+- Because of this, runtime should be interpreted together with outcome, final distance to goal, and total distance traveled.
+
+7. There is currently no experimental evidence for Flow 1.
+- No Flow 1 experiment metadata was found in the current experiment_data_folder.
+- Flow 1 should not be included in any quantitative comparison unless new runs are added.
+
+Recommended wording for the Results section
+
+"Across the recorded experiments, Flow 5 was the most reliable navigation method, reaching the goal in both Experiment 1 and Experiment 2 with final goal errors below 0.1 m. Flow 6 achieved the fastest successful run at 80.102 s, but it was unstable overall, succeeding in only 1 of 7 recorded runs. Flows 2 and 3 both failed because of API rate-limit errors, so their results are better interpreted as system-level failures rather than purely navigation failures. Among these failed LLM-agent runs, Flow 3 consistently ended closer to the goal than Flow 2, suggesting that adding LiDAR may have improved local progress before termination."
