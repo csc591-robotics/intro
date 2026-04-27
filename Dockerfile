@@ -41,7 +41,8 @@ RUN sudo python3 -m pip install --no-cache-dir langgraph langchain langchain-cor
 
 # Source ROS workspace automatically when new terminal is opened
 RUN echo ". /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
-    echo "[ -f /workspace/install/setup.bash ] && . /workspace/install/setup.bash" >> ~/.bashrc
+    echo "[ -f /workspace/install/setup.bash ] && . /workspace/install/setup.bash" >> ~/.bashrc && \
+    echo "export GAZEBO_MODEL_PATH=/workspace/world_files/gazebo_models_worlds_collection/models/" >> ~/.bashrc
 
 # Source ROS in the main terminal
 COPY ros_entrypoint.sh /ros_entrypoint.sh
